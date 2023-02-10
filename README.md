@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 This got leaked to EAC, they added specific check for KACE, won't update this publicly anymore, use it as a learning tool.
 No custom detection for it on VGK/BE yet.
 
@@ -29,3 +30,7 @@ Emulation detection :
 - Wrong behavior of some API, for instance RtlRandomEx has different behavior in kernel and usermode, this can be checked to check for emulation behavior, I fixed it but if you know of any difference between ntoskrnl/ntdll that can be used to check for emulation, PR!
 - Checking if current code is in ring3/ring0, can probably sigscan for such pattern.
 - PTE checking, can be emulated the second there's any access to cr3, we get notified anyway.
+=======
+# KACE-Project
+Continuation of the original KACE project from waryas and friends
+>>>>>>> 28aac5e7adafc00ceaec8aeb5613c078a15ff244
