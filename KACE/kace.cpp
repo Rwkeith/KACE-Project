@@ -240,7 +240,7 @@ __forceinline void init_dirs() {
 
 int main(int argc, char* argv[]) {
 
-    Logger::Log("Log.txt");
+    Logger::InitializeLogFile("Log.txt");
     Logger::Log("Press enter after debugger is attached...");
     std::getchar();
 
