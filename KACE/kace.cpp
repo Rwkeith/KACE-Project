@@ -239,6 +239,9 @@ __forceinline void init_dirs() {
 }
 
 int main(int argc, char* argv[]) {
+    Logger::Log("Press enter after debugger is attached...");
+    std::getchar();
+
     _unlink("C:\\Windows\\vgkbootstatus.dat");
     AddVectoredExceptionHandler(true, ExceptionHandler);
 

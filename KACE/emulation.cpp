@@ -3,8 +3,8 @@
 #include <MemoryTracker/memorytracker.h>
 #include <PEMapper/pefile.h>
 #include <Zydis/Zydis.h>
-#include <assert.h>
 
+#include <assert.h>
 #include "environment.h"
 #include "paging_emulation.h"
 #include "provider.h"

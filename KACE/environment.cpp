@@ -61,6 +61,8 @@ void Environment::InitializeSystemModules() {
     }
     PRTL_PROCESS_MODULE_INFORMATION_EX pMods = (PRTL_PROCESS_MODULE_INFORMATION_EX)data;
 
+    auto pModCount = len / sizeof(RTL_PROCESS_MODULE_INFORMATION_EX);
+
     while (pMods && pMods->NextOffset) {
         if (!strrchr((const char*)pMods->BaseInfo.FullPathName, '\\')) {
             break;
@@ -109,7 +111,11 @@ void Environment::InitializeSystemModules() {
                 
         if (pMods->NextOffset != sizeof(_RTL_PROCESS_MODULE_INFORMATION_EX))
             break;
+
         pMods = (PRTL_PROCESS_MODULE_INFORMATION_EX)((uintptr_t)pMods + pMods->NextOffset);
+
+        if (pMods->NextOffset != sizeof(_RTL_PROCESS_MODULE_INFORMATION_EX))
+            break;
     }
 
     
