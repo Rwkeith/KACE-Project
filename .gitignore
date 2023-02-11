@@ -1,6 +1,7 @@
 KACE.sln
 KACE/KACE.vcxproj
 KACE/KACE.vcxproj.filters
+KACE/KACE.vcxproj.user
 *.ipch
 *.db-shm
 *.db-wal
