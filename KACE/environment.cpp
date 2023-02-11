@@ -61,9 +61,8 @@ void Environment::InitializeSystemModules() {
     }
     PRTL_PROCESS_MODULE_INFORMATION_EX pMods = (PRTL_PROCESS_MODULE_INFORMATION_EX)data;
 
-    auto pModCount = len / sizeof(RTL_PROCESS_MODULE_INFORMATION_EX);
-
-    while (pMods && pMods->NextOffset) {
+    while ((uint64_t)pMods <= (uint64_t)data + len - sizeof(_RTL_PROCESS_MODULE_INFORMATION_EX)) {
+        
         if (!strrchr((const char*)pMods->BaseInfo.FullPathName, '\\')) {
             break;
         }
@@ -113,18 +112,14 @@ void Environment::InitializeSystemModules() {
             break;
 
         pMods = (PRTL_PROCESS_MODULE_INFORMATION_EX)((uintptr_t)pMods + pMods->NextOffset);
-
-        if (pMods->NextOffset != sizeof(_RTL_PROCESS_MODULE_INFORMATION_EX))
-            break;
+        
     }
 
     
 
     PLDR_DATA_TABLE_ENTRY head = 0;
     
-  
-
-
+ 
     for (auto& [_, LdrEntry] : environment_module) {
         PLDR_DATA_TABLE_ENTRY TrackedLdrEntry = (PLDR_DATA_TABLE_ENTRY)MemoryTracker::AllocateVariable(sizeof(LDR_DATA_TABLE_ENTRY));
 
