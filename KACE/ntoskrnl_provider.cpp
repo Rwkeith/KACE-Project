@@ -11,11 +11,21 @@
 
 #include "environment.h"
 
+#include <fltUserStructures.h>
+
 using fnFreeCall = uint64_t(__fastcall*)(...);
 
 template <typename... Params>
 static NTSTATUS __NtRoutine(const char* Name, Params&&... params) {
     auto fn = (fnFreeCall)GetProcAddress(GetModuleHandleA("ntdll.dll"), Name);
+    return fn(std::forward<Params>(params)...);
+}
+
+// unused, but maybe later.  we can't actually execute code in fltmgr.sys that would depend on kernel functionality.  fltmgr.sys has PAGE_NO_ACCESS anyways.
+template <typename... Params>
+static uint64_t __FltRoutine(const char* Name, Params&&... params) {
+    auto mod_handle = GetModuleHandleA("FLTMGR.SYS");
+    auto fn = (fnFreeCall)GetProcAddress(mod_handle, Name);
     return fn(std::forward<Params>(params)...);
 }
 
@@ -1407,7 +1417,22 @@ void  h_ExReleaseSpinLockExclusive(EX_SPIN_LOCK* SpinLock, uint32_t OldIrql)
     *SpinLock = 0;
 }
 
+uint16_t h_FltGetRoutineAddress(PCSTR FltMgrRoutineName)
+{
+    auto mod_handle = GetModuleHandleA("FLTMGR.SYS");
+    auto fn = (fnFreeCall)GetProcAddress(mod_handle, FltMgrRoutineName);
+    Logger::Log("\tRetrieving %s ptr: %p\n", FltMgrRoutineName, (PVOID)fn);
+    return (uint16_t)fn;
+    
+    // we have PAGE_NO_ACCESS on code section of fltmgr.sys, unlike ntdll.dll.  This will get called recursively...
+    //auto routine_addr = __FltRoutine("FltGetRoutineAddress", FltMgrRoutineName);
+    //return routine_addr;
+}
+
 void ntoskrnl_provider::Initialize() {
+    // If this grows, we should make a separate fltmgr.sys provider cpp.  For now, putting here.
+    Provider::AddFuncImpl("FltGetRoutineAddress", h_FltGetRoutineAddress);
+
     Provider::AddFuncImpl("ExAcquireSpinLockShared", h_ExAcquireSpinLockShared);
     Provider::AddFuncImpl("ExReleaseSpinLockShared", h_ExReleaseSpinLockShared);
     Provider::AddFuncImpl("ExAcquireSpinLockExclusive", h_ExAcquireSpinLockExclusive);
