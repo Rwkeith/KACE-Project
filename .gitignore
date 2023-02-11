@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-
+KACE.sln
 *.ipch
 *.db-shm
 *.db-wal
@@ -377,4 +376,3 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
->>>>>>> 28aac5e7adafc00ceaec8aeb5613c078a15ff244

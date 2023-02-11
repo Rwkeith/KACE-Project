@@ -96,4 +96,7 @@
       <Filter>asm</Filter>
     </MASM>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
 </Project>
