@@ -239,6 +239,8 @@ __forceinline void init_dirs() {
 }
 
 int main(int argc, char* argv[]) {
+
+    Logger::InitializeLogFile("Log.txt");
     Logger::Log("Press enter after debugger is attached...");
     std::getchar();
 
@@ -304,6 +306,7 @@ int main(int argc, char* argv[]) {
     }
 
     CloseHandle(ThreadHandle);
+    Logger::CloseLogFile();
 
     return 0;
 }
