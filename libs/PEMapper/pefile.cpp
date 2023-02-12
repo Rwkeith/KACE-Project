@@ -132,6 +132,7 @@ PEFile::PEFile(std::string filename, std::string name, uintmax_t size) {
     if (size) {
 
         mapped_buffer = (unsigned char*)LoadLibraryExA(filename.c_str(), NULL, DONT_RESOLVE_DLL_REFERENCES);
+        Logger::Log("Loaded %s at 0x%p\n", filename.c_str(), mapped_buffer);
         if (mapped_buffer) {
 
             this->isExecutable = false;

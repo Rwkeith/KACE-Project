@@ -12,6 +12,7 @@ namespace symparser {
                 std::filesystem::create_directory(ret);
             return ret;
         }
+
     } // namespace detail
 
     namespace {
@@ -142,9 +143,24 @@ namespace symparser {
             return nullptr;
         }
 
+        // for case:  "C:\\Jenkins\\workspace\\amdkmpfd-osdb\\driver_build\\drivers\\amdkmpfd\\build\\wNow64a\\B_rel\\amdkmpfd.pdb"
+        std::string check_and_truncate_path(const char* pdb_name) noexcept {
+            char ch = '\\';
+            size_t found;
+            std::string pdb_name_str = pdb_name;
+            found = pdb_name_str.find_last_of(ch);
+            if (!(found == std::string::npos)) {
+                pdb_name_str = pdb_name_str.substr(found + 1);
+            }
+            return pdb_name_str;
+        }
+
         std::wstring codeview_to_pdbpath(structs::cv_pdb70_t* codeview) noexcept {
             std::wstringstream pdbpath;
-            pdbpath << codeview->pdb_name << L"\\";
+
+            std::string pdb_name_str = check_and_truncate_path(codeview->pdb_name);
+            
+            pdbpath << pdb_name_str.c_str() << L"\\";
 
             pdbpath << std::setfill(L'0') << std::setw(8) << std::hex << codeview->guid.dword << std::setw(4) << std::hex << codeview->guid.word[0]
                     << std::setw(4) << std::hex << codeview->guid.word[1];
@@ -152,7 +168,7 @@ namespace symparser {
             for (const auto i : codeview->guid.byte)
                 pdbpath << std::setw(2) << std::hex << +i;
 
-            pdbpath << "1\\" << codeview->pdb_name;
+            pdbpath << "1\\" << pdb_name_str.c_str();
 
             return pdbpath.str();
         }
@@ -167,24 +183,26 @@ namespace symparser {
 
             auto pdb_dir = detail::get_cache_folder();
 
-            const auto local_pdbpath = pdb_dir.wstring() + pdbpath;
+            auto local_pdbpath = pdb_dir.wstring() + pdbpath;
 
             if (fs::exists(local_pdbpath)) {
                 return local_pdbpath;
             }
 
-            fs::create_directory(pdb_dir.wstring() + util::str_to_wstr(codeview->pdb_name));
+            std::string pdb_name_str = check_and_truncate_path(codeview->pdb_name);
+
+            fs::create_directory(pdb_dir.wstring() + util::str_to_wstr(pdb_name_str.c_str()));
             fs::create_directory(local_pdbpath.substr(0, local_pdbpath.find_last_of('\\')));
 
-            Logger::Log("symparser: Downloading %s\n", codeview->pdb_name);
+            Logger::Log("symparser: Downloading %s\n", pdb_name_str.c_str());
 
             const auto download_stat = URLDownloadToFileW(nullptr, std::wstring { L"http://msdl.microsoft.com/download/symbols/" + pdbpath }.c_str(),
                 local_pdbpath.c_str(), 0, nullptr);
 
             if (download_stat != S_OK) {
 #ifdef _DEBUG
-                __debugbreak();
-#endif
+                // __debugbreak();
+#endif          
                 return {};
             }
 
@@ -208,11 +226,21 @@ namespace symparser {
             __debugbreak();
 
         const auto codeview = image_find_codeview(image.data());
+
         if (!strstr(codeview->pdb_name, ".pdb"))
             return  std::vector<sym_t>();
         const auto pdb_path = cache_pdb(codeview);
-        if (!pdb_path)
-            __debugbreak();
+        if (!pdb_path) {
+            // __debugbreak();
+
+            std::string pdb_name_str = check_and_truncate_path(codeview->pdb_name);
+
+            Logger::Log("Failed to download symbols from msft server for %s \n", pdb_name_str.c_str());
+            std::vector<sym_t> syms;
+            return syms;
+        }
+            
+            
 
         auto pdb = util::read_file(*pdb_path);
         auto symbols = parse_symbols(pdb.data(), image.data());

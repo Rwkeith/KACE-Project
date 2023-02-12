@@ -255,7 +255,18 @@ int main(int argc, char* argv[]) {
     MemoryTracker::Initiate();
     VCPU::Initialize();
     PagingEmulation::SetupCR3();
-    Environment::InitializeSystemModules();
+    
+    bool load_only_emu_mods = FALSE;
+    std::string load_flag;
+    if (argc > 2) {
+        load_flag = argv[2];
+        if (load_flag == "load_only_emu_mods") {
+            Logger::Log("load_only_emu_mods flag specified, loading only modules from c:\\emu\\ \n");
+            load_only_emu_mods = TRUE;
+        }
+    }
+
+    Environment::InitializeSystemModules(load_only_emu_mods);
     ntoskrnl_provider::Initialize();
    
 
