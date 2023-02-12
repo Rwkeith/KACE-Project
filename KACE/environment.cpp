@@ -91,8 +91,8 @@ void Environment::InitializeSystemModules(bool load_only_emu_mods) {
         LdrEntry.CheckSum = pMods->ImageCheckSum;
         
         std::string file_path = std::string(IMPORT_MODULE_DIRECTORY) + filename;
-
-        if (!load_only_emu_mods) {
+        
+        if (!load_only_emu_mods && !fs::exists(file_path)) {
             file_path = (const char*)pMods->BaseInfo.FullPathName;
             auto sym_idx = file_path.find("SystemRoot", 0);
             if (sym_idx != std::string::npos) {
@@ -131,7 +131,7 @@ void Environment::InitializeSystemModules(bool load_only_emu_mods) {
             environment_module.insert(std::pair((uintptr_t)LdrEntry.DllBase, LdrEntry));
         } else {
             if (load_only_emu_mods) {
-                Logger::Log("Warning: Unable to find %s in %s. Ignoring and not adding to module list.\n", filename, IMPORT_MODULE_DIRECTORY);
+                Logger::Log("Skipping %s.\n", filename);
             } else {
                 Logger::Log("Warning: Couldn't find %s in any driver directories. Ignoring and not adding to module list\n", filename);
             }
