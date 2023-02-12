@@ -306,6 +306,7 @@ NTSTATUS h_RtlWriteRegistryValue(ULONG RelativeTo, PCWSTR Path, PCWSTR ValueName
 }
 
 NTSTATUS h_RtlInitUnicodeString(PUNICODE_STRING DestinationString, PCWSTR SourceString) {
+    DebugBreak();
     auto ret = __NtRoutine("RtlInitUnicodeString", DestinationString, SourceString);
     return ret;
 }
@@ -753,7 +754,10 @@ LONG h_KeSetEvent(_KEVENT* Event, LONG Increment, BOOLEAN Wait) {
 #define CURRENT_THREAD ((HANDLE)-2)
 #define NtCurrentProcess CURRENT_PROCESS
 
-NTSTATUS h_PsRemoveLoadImageNotifyRoutine(void* NotifyRoutine) { return STATUS_PROCEDURE_NOT_FOUND; }
+NTSTATUS h_PsRemoveLoadImageNotifyRoutine(void* NotifyRoutine) {
+    DebugBreak();
+     return STATUS_PROCEDURE_NOT_FOUND;
+}
 
 NTSTATUS h_PsSetCreateProcessNotifyRoutineEx(void* NotifyRoutine, BOOLEAN Remove) {
     if (Remove) {
@@ -837,10 +841,7 @@ LONG h_KeReleaseMutex(PVOID Mutex, BOOLEAN Wait) {
 
 NTSTATUS h_KeWaitForSingleObject(PVOID Object, void* WaitReason, void* WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Timeout) {
 
-    auto hEvent = HandleManager::GetHandle((uintptr_t)Object);
-    if (!hEvent)
-        DebugBreak();
-    WaitForSingleObject((HANDLE)hEvent, INFINITE);
+
     return STATUS_SUCCESS;
 };
 
@@ -972,9 +973,15 @@ BOOLEAN h_MmIsAddressValid(PVOID VirtualAddress) {
     return true;
 }
 
-NTSTATUS h_PsSetCreateThreadNotifyRoutine(PVOID NotifyRoutine) { return STATUS_SUCCESS; }
+NTSTATUS h_PsSetCreateThreadNotifyRoutine(PVOID NotifyRoutine) {
 
-NTSTATUS h_PsSetLoadImageNotifyRoutine(PVOID NotifyRoutine) { return STATUS_SUCCESS; }
+     return STATUS_SUCCESS;
+}
+
+NTSTATUS h_PsSetLoadImageNotifyRoutine(PVOID NotifyRoutine) {
+
+     return STATUS_SUCCESS;
+}
 
 BOOLEAN h_ExAcquireResourceExclusiveLite(_ERESOURCE* Resource, BOOLEAN Wait) {
     //Resource->OwnerEntry.OwnerThread = (uint64_t)h_KeGetCurrentThread();
@@ -1417,21 +1424,58 @@ void  h_ExReleaseSpinLockExclusive(EX_SPIN_LOCK* SpinLock, uint32_t OldIrql)
     *SpinLock = 0;
 }
 
-uint16_t h_FltGetRoutineAddress(PCSTR FltMgrRoutineName)
-{
+fnFreeCall h_FltGetRoutineAddress(PCSTR FltMgrRoutineName) {
     auto mod_handle = GetModuleHandleA("FLTMGR.SYS");
     auto fn = (fnFreeCall)GetProcAddress(mod_handle, FltMgrRoutineName);
     Logger::Log("\tRetrieving %s ptr: %p\n", FltMgrRoutineName, (PVOID)fn);
-    return (uint16_t)fn;
-    
-    // we have PAGE_NO_ACCESS on code section of fltmgr.sys, unlike ntdll.dll.  This will get called recursively...
-    //auto routine_addr = __FltRoutine("FltGetRoutineAddress", FltMgrRoutineName);
-    //return routine_addr;
+    return fn;
+}
+
+NTSTATUS h_FltRegisterFilter(void* Driver, const void* Registration, void* RetFilter) { 
+    return 0; 
+}
+
+void h_FltUnregisterFilter(void* Filter) { 
+    return; 
+}
+
+NTSTATUS h_FltStartFiltering(void* Filter) { 
+    return 0; 
+}
+
+
+NTSTATUS h_FltGetFileNameInformation(void* CallbackData, ULONG NameOptions, void* FileNameInformation) {
+    return 0;
+}
+
+NTSTATUS h_FltReleaseFileNameInformation(void* FileNameInformation) {
+    return 0; 
+}
+
+NTSTATUS h_FltReadFile(void* InitiatingInstance, void* FileObject, PLARGE_INTEGER ByteOffset, ULONG Length, PVOID Buffer, ULONG Flags, PULONG BytesRead,void* CallbackRoutine, PVOID CallbackContext) {
+    return 0;
+}
+
+NTSTATUS h_FltQueryInformationFile(void* Instance, void* FileObject, PVOID FileInformation, ULONG Length, FILE_INFORMATION_CLASS FileInformationClass,
+    PULONG LengthReturned) {
+    return 0; 
+}
+
+void* h_FltGetRequestorProcess(void* CallbackData) {
+    return 0;
 }
 
 void ntoskrnl_provider::Initialize() {
     // If this grows, we should make a separate fltmgr.sys provider cpp.  For now, putting here.
     Provider::AddFuncImpl("FltGetRoutineAddress", h_FltGetRoutineAddress);
+    Provider::AddFuncImpl("FltRegisterFilter", h_FltRegisterFilter);
+    Provider::AddFuncImpl("FltUnregisterFilter", h_FltUnregisterFilter);
+    Provider::AddFuncImpl("FltGetFileNameInformation", h_FltGetFileNameInformation);
+    Provider::AddFuncImpl("FltReleaseFileNameInformation", h_FltReleaseFileNameInformation);
+    Provider::AddFuncImpl("FltReadFile", h_FltReadFile);
+    Provider::AddFuncImpl("FltQueryInformationFile", h_FltQueryInformationFile);
+    Provider::AddFuncImpl("FltGetRequestorProcess", h_FltGetRequestorProcess);
+
 
     Provider::AddFuncImpl("ExAcquireSpinLockShared", h_ExAcquireSpinLockShared);
     Provider::AddFuncImpl("ExReleaseSpinLockShared", h_ExReleaseSpinLockShared);
