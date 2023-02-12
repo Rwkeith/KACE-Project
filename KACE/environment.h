@@ -8,7 +8,7 @@ namespace Environment {
     inline std::unordered_map<uintptr_t, LDR_DATA_TABLE_ENTRY> environment_module{};
     inline PLDR_DATA_TABLE_ENTRY PsLoadedModuleList;
 
-    void InitializeSystemModules();
+    void InitializeSystemModules(bool load_only_emu_mods);
     void CheckPtr(uint64_t ptr);
 
     namespace ThreadManager {

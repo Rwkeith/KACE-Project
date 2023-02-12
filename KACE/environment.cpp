@@ -25,6 +25,8 @@ typedef struct _RTL_PROCESS_MODULE_INFORMATION_EX {
 } RTL_PROCESS_MODULE_INFORMATION_EX, *PRTL_PROCESS_MODULE_INFORMATION_EX;
 
 #define IMPORT_MODULE_DIRECTORY "c:\\emu\\"
+#define SYSTEM_32_DIRECTORY "c:\\Windows\\System32\\"
+#define SYSTEM_DRIVER_DIRECTORY "c:\\Windows\\System32\\drivers\\"
 
 /*
 struct windows_module {
@@ -50,7 +52,7 @@ struct windows_module {
 
 
 
-void Environment::InitializeSystemModules() {
+void Environment::InitializeSystemModules(bool load_only_emu_mods) {
     uint64_t len = 0;
     PVOID data = 0;
     auto ret = __NtRoutine("NtQuerySystemInformation", 0x4D, 0, 0, &len);
@@ -88,7 +90,18 @@ void Environment::InitializeSystemModules() {
 
         LdrEntry.CheckSum = pMods->ImageCheckSum;
         
-        const auto import_local_file = std::string(IMPORT_MODULE_DIRECTORY) + filename;
+        auto import_local_file = std::string(IMPORT_MODULE_DIRECTORY) + filename;
+        
+        // Do we want to try to load all modules into userspace?  Better to redirect read's of other modules to the real ones in kernel when necessary?
+        if (!load_only_emu_mods) {
+            if (!fs::exists(import_local_file)) {
+                import_local_file = std::string(SYSTEM_32_DIRECTORY) + filename;
+                if (!fs::exists(import_local_file)) {
+                    import_local_file = std::string(SYSTEM_DRIVER_DIRECTORY) + filename;
+                }
+            }
+        }
+
         if (fs::exists(import_local_file)) {
             auto pe_file = PEFile::Open(import_local_file, filename);
 
@@ -99,6 +112,13 @@ void Environment::InitializeSystemModules() {
             Logger::Log("PDB for %s\n", import_local_file.c_str());
             symparser::download_symbols(import_local_file);
         } else {
+            if (load_only_emu_mods) {
+                Logger::Log("Warning: Unable to find %s in %s. Creating LdrEntry, but module not mapped into KACE's userspace.\n", filename, IMPORT_MODULE_DIRECTORY);
+            } else {
+                Logger::Log("Warning: Couldn't find %s in any driver directories.  Creating LdrEntry, but not mapped into KACE's userspace.\n",
+                    filename);
+            }
+            
             LdrEntry.DllBase = (PVOID)pMods->BaseInfo.ImageBase;
             LdrEntry.EntryPoint = (PVOID)pMods->BaseInfo.ImageBase; // TODO parse PE header?
 
