@@ -90,43 +90,60 @@ void Environment::InitializeSystemModules(bool load_only_emu_mods) {
 
         LdrEntry.CheckSum = pMods->ImageCheckSum;
         
-        auto import_local_file = std::string(IMPORT_MODULE_DIRECTORY) + filename;
-        
-        // Do we want to try to load all modules into userspace?  Better to redirect read's of other modules to the real ones in kernel when necessary?
+        std::string file_path = std::string(IMPORT_MODULE_DIRECTORY) + filename;
+
         if (!load_only_emu_mods) {
-            if (!fs::exists(import_local_file)) {
-                import_local_file = std::string(SYSTEM_32_DIRECTORY) + filename;
-                if (!fs::exists(import_local_file)) {
-                    import_local_file = std::string(SYSTEM_DRIVER_DIRECTORY) + filename;
+            file_path = (const char*)pMods->BaseInfo.FullPathName;
+            auto sym_idx = file_path.find("SystemRoot", 0);
+            if (sym_idx != std::string::npos) {
+                file_path.replace(sym_idx, 10, "Windows");
+            }
+
+            sym_idx = file_path.find("\\??\\", 0);
+            if (sym_idx != std::string::npos) {
+                file_path.replace(sym_idx, 6, "");
+            }
+
+            if (!fs::exists(file_path)) {
+                Logger::Log("Failed to find module %s \n", file_path.c_str());
+                file_path = std::string(SYSTEM_32_DIRECTORY) + filename;
+                if (!fs::exists(file_path)) {
+                    file_path = std::string(SYSTEM_DRIVER_DIRECTORY) + filename;
+                    if (!fs::exists(file_path)) {
+                        DebugBreak();
+                        Logger::Log("Searched all known paths and still failed to find %s \n", filename);
+
+                    }
                 }
             }
         }
 
-        if (fs::exists(import_local_file)) {
-            auto pe_file = PEFile::Open(import_local_file, filename);
+        if (fs::exists(file_path)) {
+            auto pe_file = PEFile::Open(file_path, filename);
 
             LdrEntry.DllBase = (PVOID)pe_file->GetMappedImageBase();
             LdrEntry.EntryPoint = (PVOID)pe_file->GetMappedImageBase(); // TODO parse PE header?
 
 
-            Logger::Log("PDB for %s\n", import_local_file.c_str());
-            symparser::download_symbols(import_local_file);
+            Logger::Log("PDB for %s\n", file_path.c_str());
+            symparser::download_symbols(file_path);
+
+            environment_module.insert(std::pair((uintptr_t)LdrEntry.DllBase, LdrEntry));
         } else {
             if (load_only_emu_mods) {
-                Logger::Log("Warning: Unable to find %s in %s. Creating LdrEntry, but module not mapped into KACE's userspace.\n", filename, IMPORT_MODULE_DIRECTORY);
+                Logger::Log("Warning: Unable to find %s in %s. Ignoring and not adding to module list.\n", filename, IMPORT_MODULE_DIRECTORY);
             } else {
-                Logger::Log("Warning: Couldn't find %s in any driver directories.  Creating LdrEntry, but not mapped into KACE's userspace.\n",
-                    filename);
+                Logger::Log("Warning: Couldn't find %s in any driver directories. Ignoring and not adding to module list\n", filename);
             }
             
-            LdrEntry.DllBase = (PVOID)pMods->BaseInfo.ImageBase;
-            LdrEntry.EntryPoint = (PVOID)pMods->BaseInfo.ImageBase; // TODO parse PE header?
+            //LdrEntry.DllBase = (PVOID)pMods->BaseInfo.ImageBase;
+            //LdrEntry.EntryPoint = (PVOID)pMods->BaseInfo.ImageBase; // TODO parse PE header?
 
             // @todo: @es3n1n: resolve NT path to DOS path here and cache pdb
             //
         }
 
-        environment_module.insert(std::pair((uintptr_t)LdrEntry.DllBase, LdrEntry));
+       
                 
         if (pMods->NextOffset != sizeof(_RTL_PROCESS_MODULE_INFORMATION_EX))
             break;

@@ -835,7 +835,7 @@ void h_KeInitializeMutex(PVOID Mutex, ULONG level) {
 }
 
 LONG h_KeReleaseMutex(PVOID Mutex, BOOLEAN Wait) { 
-    DebugBreak();
+    // DebugBreak();
     return 0; }
 
 
