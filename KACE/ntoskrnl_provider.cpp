@@ -1467,6 +1467,7 @@ void* h_FltGetRequestorProcess(void* CallbackData) {
 
 void ntoskrnl_provider::Initialize() {
     // If this grows, we should make a separate fltmgr.sys provider cpp.  For now, putting here.
+    Provider::AddFuncImpl("FltStartFiltering", h_FltStartFiltering);
     Provider::AddFuncImpl("FltGetRoutineAddress", h_FltGetRoutineAddress);
     Provider::AddFuncImpl("FltRegisterFilter", h_FltRegisterFilter);
     Provider::AddFuncImpl("FltUnregisterFilter", h_FltUnregisterFilter);
