@@ -12,6 +12,7 @@
 #include "environment.h"
 
 #include <fltUserStructures.h>
+#include <SymParser/symparser.hpp>
 
 using fnFreeCall = uint64_t(__fastcall*)(...);
 
@@ -159,7 +160,6 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
             Logger::Log("\tBoot info buffer : %llx\n", (void*)pBootInfo);
         }
     }
-
     return x;
 }
 
@@ -778,13 +778,30 @@ void h_ExWaitForRundownProtectionRelease(_EX_RUNDOWN_REF* RunRef) { }
 BOOLEAN h_KeCancelTimer(_KTIMER* Timer) { return true; }
 
 PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName) {
-
+    static uint64_t counter = 0;
+    
     char cStr[512] = { 0 };
     wchar_t* wStr = SystemRoutineName->Buffer;
     PVOID funcptr = 0;
     wcstombs(cStr, SystemRoutineName->Buffer, 256);
-    Logger::Log("\tRetrieving %s ptr\n", cStr);
 
+    // same semantics.  But ones not exported.
+    if (!strcmp(cStr, "IoGetCurrentProcess")) {
+        strcpy(cStr, "PsGetCurrentProcess");
+    }
+
+    Logger::Log("\Trying to get %s ptr\n", cStr);
+
+    auto sym = symparser::find_symbol("c:\\emu\\ntoskrnl.exe", cStr);
+    if (sym && sym->rva) {
+        auto pe_file = PEFile::FindModule("ntoskrnl.exe");
+        funcptr = (PVOID)(pe_file->GetMappedImageBase() + sym->rva);
+        Logger::Log("\Found %s ptr in ntoskrnl: %p\n", cStr, funcptr);
+        return funcptr;
+    } else {
+        __debugbreak();
+    }
+        
     if (Provider::function_providers.contains(cStr))
         return Provider::function_providers[cStr];
 
@@ -796,9 +813,12 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName) {
 
     funcptr = GetProcAddress(LoadLibraryA("ntdll.dll"), cStr);
 
-    if (!funcptr)
-        funcptr = Provider::unimplemented_stub;
-
+    if (!funcptr) {
+        counter += 1;
+        Logger::Log("\Failed to find %s from ntdll.dll or ntoskrnl.exe, assigning meme value of %i\n", cStr, counter);
+        funcptr = (PVOID)counter; // Provider::unimplemented_stub;
+    }
+        
     Provider::passthrough_provider_cache.insert(std::pair(cStr, funcptr));
 
     return funcptr;
@@ -1465,6 +1485,23 @@ void* h_FltGetRequestorProcess(void* CallbackData) {
     return 0;
 }
 
+
+NTSTATUS h_PsAcquireProcessExitSynchronization(PVOID Process) { 
+    return STATUS_SUCCESS;
+}
+
+void h_PsReleaseProcessExitSynchronization(PVOID Process) {
+    return;
+};
+
+//NTSTATUS h_PsGetProcessImageFileName(PEPROCESS Process, PUNICODE_STRING FileName) { 
+//    
+//    PCWSTR
+//    RtlInitUnicodeString(FileName, );
+//    return imageFileName;
+//}
+
+
 void ntoskrnl_provider::Initialize() {
     // If this grows, we should make a separate fltmgr.sys provider cpp.  For now, putting here.
     Provider::AddFuncImpl("FltStartFiltering", h_FltStartFiltering);
@@ -1477,6 +1514,9 @@ void ntoskrnl_provider::Initialize() {
     Provider::AddFuncImpl("FltQueryInformationFile", h_FltQueryInformationFile);
     Provider::AddFuncImpl("FltGetRequestorProcess", h_FltGetRequestorProcess);
 
+    Provider::AddFuncImpl("PsAcquireProcessExitSynchronization", h_PsAcquireProcessExitSynchronization);
+    Provider::AddFuncImpl("PsReleaseProcessExitSynchronization", h_PsReleaseProcessExitSynchronization);
+    //Provider::AddFuncImpl("PsGetProcessImageFileName", h_PsGetProcessImageFileName);
 
     Provider::AddFuncImpl("ExAcquireSpinLockShared", h_ExAcquireSpinLockShared);
     Provider::AddFuncImpl("ExReleaseSpinLockShared", h_ExReleaseSpinLockShared);

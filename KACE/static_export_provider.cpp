@@ -24,7 +24,8 @@ namespace ntoskrnl_export {
 
         ntoskrnl_export::InitializeObjectType();
         ntoskrnl_export::InitializePsLoadedModuleList();
-
+       
+        Provider::AddDataImpl("NtBuildNumber", &NtBuildNumber, sizeof(NtBuildNumber));
         Provider::AddDataImpl("SeExports", (PVOID)SeExport, sizeof(SeExport));
         Provider::AddDataImpl("KdDebuggerNotPresent", &KdDebuggerNotPresent, sizeof(KdDebuggerNotPresent));
         Provider::AddDataImpl("KdDebuggerEnabled", &KdDebuggerEnabled, sizeof(KdDebuggerEnabled));
