@@ -522,6 +522,7 @@ PACCESS_TOKEN h_PsReferencePrimaryToken(_EPROCESS* Process) {
         do {
             v3 = _InterlockedCompareExchange64((volatile long long*)a1, Value - 1, Value);
             if (Value == v3)
+
                 break;
             Value = v3;
         } while ((v3 & 0xF) != 0);
@@ -1494,12 +1495,22 @@ void h_PsReleaseProcessExitSynchronization(PVOID Process) {
     return;
 };
 
-//NTSTATUS h_PsGetProcessImageFileName(PEPROCESS Process, PUNICODE_STRING FileName) { 
-//    
-//    PCWSTR
-//    RtlInitUnicodeString(FileName, );
-//    return imageFileName;
-//}
+int h__strnicmp(const char* str1, const char* str2, uint64_t maxCount)
+{
+    int res = _strnicmp(str1, str2, maxCount);
+    if (!res)
+        Logger::Log("\033[38;5;46m[Info]\033[0m STRING MATCH ");
+    Logger::Log("str1: %s str2: %s \n", str1, str2);
+    return res;
+}
+
+NTSTATUS h_PsGetProcessImageFileName(_EPROCESS* Process, PUNICODE_STRING FileName) { 
+    
+    UCHAR* filename = Process->ImageFileName;
+    UCHAR* filename2 = FakeSystemProcess.ImageFileName;
+    // are we sane?
+    return STATUS_SUCCESS;
+}
 
 
 void ntoskrnl_provider::Initialize() {
@@ -1514,9 +1525,11 @@ void ntoskrnl_provider::Initialize() {
     Provider::AddFuncImpl("FltQueryInformationFile", h_FltQueryInformationFile);
     Provider::AddFuncImpl("FltGetRequestorProcess", h_FltGetRequestorProcess);
 
+
+    Provider::AddFuncImpl("_strnicmp", h__strnicmp);
     Provider::AddFuncImpl("PsAcquireProcessExitSynchronization", h_PsAcquireProcessExitSynchronization);
     Provider::AddFuncImpl("PsReleaseProcessExitSynchronization", h_PsReleaseProcessExitSynchronization);
-    //Provider::AddFuncImpl("PsGetProcessImageFileName", h_PsGetProcessImageFileName);
+    Provider::AddFuncImpl("PsGetProcessImageFileName", h_PsGetProcessImageFileName);
 
     Provider::AddFuncImpl("ExAcquireSpinLockShared", h_ExAcquireSpinLockShared);
     Provider::AddFuncImpl("ExReleaseSpinLockShared", h_ExReleaseSpinLockShared);

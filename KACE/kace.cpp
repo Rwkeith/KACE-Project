@@ -184,6 +184,7 @@ DWORD FakeDriverEntry(LPVOID) {
     FakeSystemProcess.Protection.Level = 7;
     FakeSystemProcess.WoW64Process = nullptr;
     FakeSystemProcess.CreateTime.QuadPart = GetTickCount64();
+    strcpy((char*)FakeSystemProcess.ImageFileName, "C:\\emu\\ntoskrnl.exe");
 
     FakeCPU.CurrentThread = (_KTHREAD*)&FakeKernelThread;
     FakeCPU.IdleThread = (_KTHREAD*)&FakeKernelThread;
