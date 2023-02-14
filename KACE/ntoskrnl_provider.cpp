@@ -1504,14 +1504,9 @@ int h__strnicmp(const char* str1, const char* str2, uint64_t maxCount)
     return res;
 }
 
-NTSTATUS h_PsGetProcessImageFileName(_EPROCESS* Process, PUNICODE_STRING FileName) { 
-    
-    UCHAR* filename = Process->ImageFileName;
-    UCHAR* filename2 = FakeSystemProcess.ImageFileName;
-    // are we sane?
-    return STATUS_SUCCESS;
-}
+uint64_t h_PsGetProcessImageFileName(uint64_t Process) { return Process + 0x5A8; }
 
+void h_ObDereferenceObject(void* obj) { return; }
 
 void ntoskrnl_provider::Initialize() {
     // If this grows, we should make a separate fltmgr.sys provider cpp.  For now, putting here.
@@ -1526,10 +1521,12 @@ void ntoskrnl_provider::Initialize() {
     Provider::AddFuncImpl("FltGetRequestorProcess", h_FltGetRequestorProcess);
 
 
+    Provider::AddFuncImpl("ObDereferenceObject", h_ObDereferenceObject);
     Provider::AddFuncImpl("_strnicmp", h__strnicmp);
     Provider::AddFuncImpl("PsAcquireProcessExitSynchronization", h_PsAcquireProcessExitSynchronization);
     Provider::AddFuncImpl("PsReleaseProcessExitSynchronization", h_PsReleaseProcessExitSynchronization);
     Provider::AddFuncImpl("PsGetProcessImageFileName", h_PsGetProcessImageFileName);
+    
 
     Provider::AddFuncImpl("ExAcquireSpinLockShared", h_ExAcquireSpinLockShared);
     Provider::AddFuncImpl("ExReleaseSpinLockShared", h_ExReleaseSpinLockShared);
