@@ -306,7 +306,9 @@ NTSTATUS h_RtlWriteRegistryValue(ULONG RelativeTo, PCWSTR Path, PCWSTR ValueName
 }
 
 NTSTATUS h_RtlInitUnicodeString(PUNICODE_STRING DestinationString, PCWSTR SourceString) {
-    DebugBreak();
+    char c[50] = {};
+    wcstombs(c, SourceString, wcslen(SourceString));
+    Logger::Log("RtlInit'd String: %s\n", c);
     auto ret = __NtRoutine("RtlInitUnicodeString", DestinationString, SourceString);
     return ret;
 }
@@ -1504,7 +1506,14 @@ int h__strnicmp(const char* str1, const char* str2, uint64_t maxCount)
     return res;
 }
 
-uint64_t h_PsGetProcessImageFileName(uint64_t Process) { return Process + 0x5A8; }
+uint64_t h_PsGetProcessImageFileName(uint64_t Process) { 
+    if (auto HVA = MemoryTracker::GetHVA(Process)) {
+        Logger::Log("ImageFileName: %s\n", (char*)(HVA+0x5A8));
+    } else {
+        DebugBreak();
+    }
+    return Process + 0x5A8;
+}
 
 void h_ObDereferenceObject(void* obj) { return; }
 
