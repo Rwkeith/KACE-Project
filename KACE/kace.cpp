@@ -221,6 +221,7 @@ DWORD FakeDriverEntry(LPVOID) {
     MemoryTracker::TrackVariable((uintptr_t)&FakeCPU, sizeof(FakeCPU), (char*)"CPU");
 
    // MemoryTracker::TrackVariable((uintptr_t)&RegistryPath, sizeof(RegistryPath), (char*)"MainModule.RegistryPath");
+
     MemoryTracker::TrackVariable((uintptr_t)&FakeSystemProcess, sizeof(FakeSystemProcess), (char*)"PID4.EPROCESS");
     MemoryTracker::TrackVariable((uintptr_t)&FakeKernelThread, sizeof(FakeKernelThread), (char*)"PID4.ETHREAD");
 
@@ -251,7 +252,7 @@ int main(int argc, char* argv[]) {
     init_dirs();
 
     symparser::download_symbols("c:\\Windows\\System32\\ntdll.dll");
-    symparser::download_symbols("c:\\Windows\\System32\\ntoskrnl.exe");
+    // symparser::download_symbols("c:\\Windows\\System32\\ntoskrnl.exe");
 
 
     MemoryTracker::Initiate();

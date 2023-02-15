@@ -29,6 +29,7 @@ namespace ntoskrnl_export {
         if (sym && sym->rva) {
             auto pe_file = PEFile::FindModule("ntoskrnl.exe");
             KeServiceDescriptorTable = (uint64_t)(pe_file->GetMappedImageBase() + sym->rva);
+            Logger::Log("Address of KeServiceDescriptorTable: %p\n", KeServiceDescriptorTable);
         } else {
             Logger::Log("Failed to find KiServiceTable");
         }
