@@ -1,8 +1,10 @@
 #include "emulation.h"
+#include "static_export_provider.h"
 #include <Logger/Logger.h>
 #include <MemoryTracker/memorytracker.h>
 #include <PEMapper/pefile.h>
 #include <Zydis/Zydis.h>
+#include <SymParser/symparser.hpp>
 
 #include <assert.h>
 #include "environment.h"
@@ -18,21 +20,40 @@ namespace VCPU {
     uint64_t VCPU::CR4 = 0x370678;
     uint64_t VCPU::CR8 = 0;
 
+    //MSRs
+    uint64_t LSTAR = 0x1000;
+
+
+
+
     namespace MSRContext {
         std::unordered_map<uint32_t, std::pair<uint64_t, std::string>> MSRData;
 
-        bool Initialize() {
+        void InitializeMSR() {
+
+            auto sym = symparser::find_symbol("c:\\emu\\ntoskrnl.exe", "KiSystemCall64");
+
+            if (sym && sym->rva) {
+                auto pe_file = PEFile::FindModule("ntoskrnl.exe");
+                LSTAR = (uint64_t)(pe_file->GetMappedImageBase() + sym->rva);
+            } else {
+                Logger::Log("Failed to find KiSystemCall64");
+            }
+        }
+
+        bool Initialize() 
+        {
+            InitializeMSR();
+
             MSRData.insert(std::pair(0x1D9, std::pair(0, "DBGCTL_MSR")));
             MSRData.insert(std::pair(0x122, std::pair(0,"IA32_TSX_CTRL MSR")));
             MSRData.insert(std::pair(0x1DB, std::pair(0, "MSRLASTBRANCH-_FROM_IP_MSR")));
             MSRData.insert(std::pair(0x680, std::pair(0, "LastBranchFromIP_MSR")));
             MSRData.insert(std::pair(0x1c9, std::pair(0, "MSR_LASTBRANCH_TOS")));
             MSRData.insert(std::pair(0, std::pair(0xFFF, "MSR_0_P5_IP_ADDR")));
-            MSRData.insert(std::pair(0xc0000082, std::pair(0x10000, "MSR_LSTAR")));
+            MSRData.insert(std::pair(0xc0000082, std::pair(LSTAR, "MSR_LSTAR")));
             MSRData.insert(std::pair(0x1B, std::pair(0xfee00800, "IA32_APIC_BASE")));
-            
-
-            
+           
 
             return true;
         }

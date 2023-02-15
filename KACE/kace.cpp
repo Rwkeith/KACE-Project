@@ -253,9 +253,8 @@ int main(int argc, char* argv[]) {
     symparser::download_symbols("c:\\Windows\\System32\\ntdll.dll");
     symparser::download_symbols("c:\\Windows\\System32\\ntoskrnl.exe");
 
+
     MemoryTracker::Initiate();
-    VCPU::Initialize();
-    PagingEmulation::SetupCR3();
     
     bool load_only_emu_mods = FALSE;
     std::string load_flag;
@@ -269,6 +268,11 @@ int main(int argc, char* argv[]) {
 
     Environment::InitializeSystemModules(load_only_emu_mods);
     ntoskrnl_provider::Initialize();
+
+    VCPU::Initialize();
+    PagingEmulation::SetupCR3();
+    
+
    
 
     DWORD dwMode;
