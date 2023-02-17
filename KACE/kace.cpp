@@ -19,7 +19,7 @@
 #include "ntoskrnl_provider.h"
 #include "provider.h"
 
-//#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
+// #define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
 
 //This will monitor every read/write with a page_guard - SLOW - Better debugging
 

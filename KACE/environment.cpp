@@ -16,55 +16,91 @@ static NTSTATUS __NtRoutine(const char* Name, Params&&... params) {
     return fn(std::forward<Params>(params)...);
 }
 
-typedef struct _RTL_PROCESS_MODULE_INFORMATION_EX {
-    ULONG NextOffset;
-    RTL_PROCESS_MODULE_INFORMATION BaseInfo;
-    ULONG ImageCheckSum;
-    ULONG TimeDateStamp;
-    PVOID DefaultBase;
-} RTL_PROCESS_MODULE_INFORMATION_EX, *PRTL_PROCESS_MODULE_INFORMATION_EX;
-
-#define IMPORT_MODULE_DIRECTORY "c:\\emu\\"
-#define SYSTEM_32_DIRECTORY "c:\\Windows\\System32\\"
-#define SYSTEM_DRIVER_DIRECTORY "c:\\Windows\\System32\\drivers\\"
-
-/*
-struct windows_module {
-	ULONG Section;
-	PVOID MappedBase;
-	PVOID ImageBase;
-	ULONG ImageSize;
-	ULONG Flags;
-	USHORT LoadOrderIndex;
-	USHORT InitOrderIndex;
-	USHORT LoadCount;
-	USHORT OffsetToFileName;
-	CHAR FullPathName[256];
-	ULONG Checksum;
-	ULONG Timestamp;
-	PVOID Defaultbase;
-	bool overriden;
-};
-
-*/
 
 
+int Environment::GetModuleCount(PRTL_PROCESS_MODULE_INFORMATION_EX module_list) {
+    if (module_list->NextOffset != sizeof(_RTL_PROCESS_MODULE_INFORMATION_EX)) {
+        return 1;
+    }
 
+    PRTL_PROCESS_MODULE_INFORMATION_EX temp = module_list;
+    auto module_count = 0;
+    while (temp->NextOffset == sizeof(_RTL_PROCESS_MODULE_INFORMATION_EX)) {
+        module_count += 1;
+        temp = (PRTL_PROCESS_MODULE_INFORMATION_EX)((uintptr_t)temp + temp->NextOffset);
+    }
 
+    return module_count;
+}
+
+PRTL_PROCESS_MODULE_INFORMATION_EX Environment::FilterSystemModules(PRTL_PROCESS_MODULE_INFORMATION_EX module_list, std::vector<std::string> filter_list) {
+    auto mod_count = GetModuleCount(module_list);
+    
+    auto new_count = 0;
+
+    std::vector<PRTL_PROCESS_MODULE_INFORMATION_EX> new_mod_list;
+    auto temp = module_list;
+    auto skip = false;
+
+    for (int i = 0; i < mod_count; i++) {
+        auto file_name = (const char*)temp->BaseInfo.FullPathName + temp->BaseInfo.OffsetToFileName;
+        for (auto name : filter_list) {
+            if (!strcmp(name.c_str(), file_name)) {
+                DebugBreak();
+                skip = true;
+                break;
+            }
+        }
+
+        if (skip) {
+            skip = false;
+            continue;
+        }
+
+        new_mod_list.push_back(temp);
+        temp = (PRTL_PROCESS_MODULE_INFORMATION_EX)((uintptr_t)temp + sizeof(_RTL_PROCESS_MODULE_INFORMATION_EX));
+    }
+    
+    PRTL_PROCESS_MODULE_INFORMATION_EX new_mod_info = new _RTL_PROCESS_MODULE_INFORMATION_EX[new_mod_list.size()];
+
+    temp = new_mod_info;
+    for (auto module : new_mod_list) {
+        memcpy(temp, module, sizeof(_RTL_PROCESS_MODULE_INFORMATION_EX));
+        temp = (PRTL_PROCESS_MODULE_INFORMATION_EX)((uintptr_t)temp + sizeof(_RTL_PROCESS_MODULE_INFORMATION_EX));
+    }
+
+    return new_mod_info;
+}
 
 void Environment::InitializeSystemModules(bool load_only_emu_mods) {
     uint64_t len = 0;
-    PVOID data = 0;
+    PVOID module_data = 0;
     auto ret = __NtRoutine("NtQuerySystemInformation", 0x4D, 0, 0, &len);
     if (ret != 0) {
-        data = malloc(len);
-        memset(data, 0, len);
-        ret = __NtRoutine("NtQuerySystemInformation", 0x4D, data, len, &len);
+        module_data = malloc(len);
+        memset(module_data, 0, len);
+        ret = __NtRoutine("NtQuerySystemInformation", 0x4D, module_data, len, &len);
     }
-    PRTL_PROCESS_MODULE_INFORMATION_EX pMods = (PRTL_PROCESS_MODULE_INFORMATION_EX)data;
 
-    while ((uint64_t)pMods <= (uint64_t)data + len - sizeof(_RTL_PROCESS_MODULE_INFORMATION_EX)) {
+    std::vector<std::string> filter_list;
+    
+    // filter your stuff out here, this is untested chief
+    // filter_list.push_back(std::string(""))
+    // FilterSystemModules()
+
+    PRTL_PROCESS_MODULE_INFORMATION_EX pMods = (PRTL_PROCESS_MODULE_INFORMATION_EX)module_data;
+
+    
+    // auto mod_count = GetModuleCount((PRTL_PROCESS_MODULE_INFORMATION_EX)data);
+
+    // new clean iteration
+    for (int i = 0; i < mod_count; i++) {
         
+    }
+    
+        // all below was in that trash while loop
+
+
         if (!strrchr((const char*)pMods->BaseInfo.FullPathName, '\\')) {
             break;
         }
@@ -151,8 +187,6 @@ void Environment::InitializeSystemModules(bool load_only_emu_mods) {
         pMods = (PRTL_PROCESS_MODULE_INFORMATION_EX)((uintptr_t)pMods + pMods->NextOffset);
         
     }
-
-    
 
     PLDR_DATA_TABLE_ENTRY head = 0;
     

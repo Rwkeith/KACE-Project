@@ -67,7 +67,7 @@ void TrampolineThread(ThreadInfo* info) {
     SetEvent(info->mutex);
     auto ret = info->routineStart(info->routineContext);
     Logger::Log("End of thread with return : %llx\n", ret);
-    
+
 }
 void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
     auto ptr = _aligned_malloc(size, 0x1000);
@@ -853,8 +853,7 @@ int h__vsnwprintf(wchar_t* buffer, size_t count, const wchar_t* format, va_list 
 
 //todo fix mutex bs
 void h_KeInitializeMutex(PVOID Mutex, ULONG level) { 
-    DebugBreak();
-
+    // DebugBreak();
 }
 
 LONG h_KeReleaseMutex(PVOID Mutex, BOOLEAN Wait) { 

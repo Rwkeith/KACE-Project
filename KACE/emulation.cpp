@@ -36,6 +36,7 @@ namespace VCPU {
             if (sym && sym->rva) {
                 auto pe_file = PEFile::FindModule("ntoskrnl.exe");
                 LSTAR = (uint64_t)(pe_file->GetMappedImageBase() + sym->rva);
+                Logger::Log("LSTAR contains %p which points to data: %p\n", LSTAR, *(uint64_t*)LSTAR);
             } else {
                 Logger::Log("Failed to find KiSystemCall64");
             }
@@ -480,7 +481,7 @@ namespace VCPU {
         }
 
         bool EmulateRead(uintptr_t addr, PCONTEXT context, ZydisDecodedInstruction* instr) { //We return true if we emulated it
-
+            Logger::Log("Trying to emulate read on addr %p which contains %p", addr, *(uint64_t*)addr);
             if (instr->mnemonic == ZYDIS_MNEMONIC_MOV) {
                 if (instr->operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER) {
                     InstrEmu::ReadPtr::EmulateMOV(context, instr->operands[0].reg.value, addr, instr);
