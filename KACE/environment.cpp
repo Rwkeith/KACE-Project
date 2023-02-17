@@ -33,32 +33,95 @@ int Environment::GetModuleCount(PRTL_PROCESS_MODULE_INFORMATION_EX module_list) 
     return module_count;
 }
 
-PRTL_PROCESS_MODULE_INFORMATION_EX Environment::FilterSystemModules(PRTL_PROCESS_MODULE_INFORMATION_EX module_list, std::vector<std::string> filter_list) {
+RTL_PROCESS_MODULES* Environment::FilterProcessModules(RTL_PROCESS_MODULES* proc_mod_list, std::vector<std::string> &filter_list, bool use_as_whitelist) {
+    auto mod_count = proc_mod_list->NumberOfModules;
+    auto new_count = 0;
+
+    std::vector<RTL_PROCESS_MODULE_INFORMATION*> new_proc_mod_list;
+    auto temp_proc_mods = proc_mod_list->Modules;
+    bool skip;
+
+    if (use_as_whitelist)
+        skip = true;
+    else
+        skip = false;
+
+    for (int i = 0; i < mod_count; i++) {
+        auto moduleName = (const char*)temp_proc_mods[i].FullPathName;
+        while (strstr(moduleName, "\\"))
+            moduleName++;
+
+        for (auto name : filter_list) {
+            if (!strcmp(name.c_str(), moduleName)) {
+                if (use_as_whitelist)
+                    skip = false;
+                else
+                    skip = true;
+                break;
+            }
+        }
+
+        if (!skip) {
+            new_proc_mod_list.push_back(&temp_proc_mods[i]);
+        }
+
+        if (use_as_whitelist)
+            skip = true;
+        else
+            skip = false;
+    }
+
+    auto new_proc_size = sizeof(uint32_t) + new_proc_mod_list.size() * sizeof(RTL_PROCESS_MODULE_INFORMATION);
+    RTL_PROCESS_MODULES* new_proc_mods = (RTL_PROCESS_MODULES*)malloc(new_proc_size);
+    memset(new_proc_mods, 0, new_proc_size);
+    new_proc_mods->NumberOfModules = new_proc_mod_list.size();
+
+    int i = 0;
+    Logger::Log("proc_mods_to_ret->Modules: %p\n", new_proc_mods->Modules);
+    for (auto module : new_proc_mod_list) {
+        Logger::Log("Writing to module data to: %p\n", &new_proc_mods->Modules[i]);
+        memcpy(&new_proc_mods->Modules[i], module, sizeof(RTL_PROCESS_MODULE_INFORMATION));
+        i++;
+    }
+
+    return new_proc_mods;
+}
+
+PRTL_PROCESS_MODULE_INFORMATION_EX Environment::FilterSystemModules(PRTL_PROCESS_MODULE_INFORMATION_EX module_list, std::vector<std::string> &filter_list, bool use_as_whitelist) {
     auto mod_count = GetModuleCount(module_list);
-    
     auto new_count = 0;
 
     std::vector<PRTL_PROCESS_MODULE_INFORMATION_EX> new_mod_list;
     auto temp = module_list;
-    auto skip = false;
+    bool skip;
+
+    if (use_as_whitelist)
+        skip = true;
+    else
+        skip = false;
 
     for (int i = 0; i < mod_count; i++) {
         auto file_name = (const char*)temp->BaseInfo.FullPathName + temp->BaseInfo.OffsetToFileName;
         for (auto name : filter_list) {
             if (!strcmp(name.c_str(), file_name)) {
-                DebugBreak();
-                skip = true;
+                if (use_as_whitelist)
+                    skip = false;
+                else
+                    skip = true;
                 break;
             }
         }
 
-        if (skip) {
-            skip = false;
-            continue;
+        if (!skip) {
+            new_mod_list.push_back(temp);
         }
 
-        new_mod_list.push_back(temp);
         temp = (PRTL_PROCESS_MODULE_INFORMATION_EX)((uintptr_t)temp + sizeof(_RTL_PROCESS_MODULE_INFORMATION_EX));
+
+        if (use_as_whitelist)
+            skip = true;
+        else
+            skip = false;
     }
     
     PRTL_PROCESS_MODULE_INFORMATION_EX new_mod_info = new _RTL_PROCESS_MODULE_INFORMATION_EX[new_mod_list.size()];
@@ -72,6 +135,70 @@ PRTL_PROCESS_MODULE_INFORMATION_EX Environment::FilterSystemModules(PRTL_PROCESS
     return new_mod_info;
 }
 
+// tries using the absolute path if given, then tries other system directories
+// returns file path on success or empty std::string on fail    (system_file, (const char*)pMods->BaseInfo.FullPathName);
+std::string Environment::GetSystemFilePath(std::string system_file, std::string absolute_path) {
+    std::string file_path;
+    if (absolute_path.length()) {
+        file_path = absolute_path.c_str(); // (const char*)pMods->BaseInfo.FullPathName;
+        auto sym_idx = file_path.find("SystemRoot", 0);
+        if (sym_idx != std::string::npos) {
+            file_path.replace(sym_idx, 10, "Windows");
+        }
+
+        sym_idx = file_path.find("\\??\\", 0);
+        if (sym_idx != std::string::npos) {
+            file_path.replace(sym_idx, 6, "");
+        }
+    }
+
+    if (!fs::exists(file_path)) {
+        file_path = std::string(SYSTEM_32_DIRECTORY) + system_file;
+        if (!fs::exists(file_path)) {
+            file_path = std::string(SYSTEM_DRIVER_DIRECTORY) + system_file;
+            if (!fs::exists(file_path)) {
+                DebugBreak();
+                Logger::Log("Searched all known paths and still failed to find %s \n", system_file.c_str());
+            }
+        }
+    }
+    return file_path;
+}
+
+// returns file path on success or empty std::string on fail
+std::string Environment::GetEmuPath(std::string system_file) { 
+    std::string file_path = std::string(IMPORT_MODULE_DIRECTORY) + system_file;
+    if (fs::exists(file_path)) {
+        return file_path;
+    } else
+        return std::string("");
+ }
+
+bool Environment::IsEmuFile(std::string system_file) {
+    std::string file_path = std::string(IMPORT_MODULE_DIRECTORY) + system_file;
+    if (fs::exists(file_path)) {
+        return true;
+    } else
+        return false;
+ }
+
+void Environment::InitKaceProcModuleList() {
+    uint64_t len = 0;
+    PVOID module_data = 0;
+    auto ret = __NtRoutine("NtQuerySystemInformation", 0xB, 0, 0, &len);
+    if (ret != 0) {
+        module_data = malloc(len);
+        memset(module_data, 0, len);
+        ret = __NtRoutine("NtQuerySystemInformation", 0xB, module_data, len, &len);
+    } else {
+        DebugBreak();       // ???
+    }
+
+    kace_proc_modules = FilterProcessModules((RTL_PROCESS_MODULES*)module_data, kace_module_whitelist, true);
+    kace_proc_modules_len = (kace_proc_modules->NumberOfModules * sizeof(RTL_PROCESS_MODULE_INFORMATION)) + sizeof(uint32_t);
+    // free(module_data);
+ }
+
 void Environment::InitializeSystemModules(bool load_only_emu_mods) {
     uint64_t len = 0;
     PVOID module_data = 0;
@@ -82,30 +209,44 @@ void Environment::InitializeSystemModules(bool load_only_emu_mods) {
         ret = __NtRoutine("NtQuerySystemInformation", 0x4D, module_data, len, &len);
     }
 
-    std::vector<std::string> filter_list;
-    
-    // filter your stuff out here, this is untested chief
-    // filter_list.push_back(std::string(""))
-    // FilterSystemModules()
-
     PRTL_PROCESS_MODULE_INFORMATION_EX pMods = (PRTL_PROCESS_MODULE_INFORMATION_EX)module_data;
 
-    
-    // auto mod_count = GetModuleCount((PRTL_PROCESS_MODULE_INFORMATION_EX)data);
+    auto mod_count = GetModuleCount((PRTL_PROCESS_MODULE_INFORMATION_EX)module_data);
 
-    // new clean iteration
+    // create entries for modules
     for (int i = 0; i < mod_count; i++) {
-        
-    }
-    
-        // all below was in that trash while loop
-
-
         if (!strrchr((const char*)pMods->BaseInfo.FullPathName, '\\')) {
             break;
         }
         auto filename = strrchr((const char*)pMods->BaseInfo.FullPathName, '\\') + 1;
-        LDR_DATA_TABLE_ENTRY LdrEntry{};
+
+        std::string absolute_path = (const char*)pMods->BaseInfo.FullPathName;
+        std::string found_path;
+
+
+        // checks if file is in emu folder. Uses legit system file and gets pdb correlated to that system file.
+        if (load_only_emu_mods) {
+            if (IsEmuFile(filename)) {
+                found_path = GetSystemFilePath(filename, absolute_path);
+            }
+        } else {
+            found_path = GetSystemFilePath(filename, absolute_path);
+        }
+
+        // don't create an entry for modules we can't find on disk.  Maybe later when we have kernel primitives, we don't care and want to simulate the real environment as accurately as possible
+        if (!found_path.length()) {
+            Logger::Log("Skipping %s \n", filename);
+            pMods = (PRTL_PROCESS_MODULE_INFORMATION_EX)((uintptr_t)pMods + pMods->NextOffset);
+            continue;
+        }
+
+        if (!strcmp(filename, "ntoskrnl.exe")) {
+            ntoskrnl_path = found_path;
+        }
+
+        kace_module_whitelist.push_back(filename);
+
+        LDR_DATA_TABLE_ENTRY LdrEntry {};
 
         LdrEntry.EntryPointActivationContext = 0;
         LdrEntry.Flags = pMods->BaseInfo.Flags;
@@ -125,95 +266,48 @@ void Environment::InitializeSystemModules(bool load_only_emu_mods) {
         RtlInitUnicodeString(&LdrEntry.BaseDllName, WideBaseDllName.c_str());
 
         LdrEntry.CheckSum = pMods->ImageCheckSum;
-        
-        std::string file_path = std::string(IMPORT_MODULE_DIRECTORY) + filename;
-        
-        if (!load_only_emu_mods && !fs::exists(file_path)) {
-            file_path = (const char*)pMods->BaseInfo.FullPathName;
-            auto sym_idx = file_path.find("SystemRoot", 0);
-            if (sym_idx != std::string::npos) {
-                file_path.replace(sym_idx, 10, "Windows");
-            }
 
-            sym_idx = file_path.find("\\??\\", 0);
-            if (sym_idx != std::string::npos) {
-                file_path.replace(sym_idx, 6, "");
-            }
+        // found_path is the real system file path
+        auto pe_file = PEFile::Open(found_path, filename);
 
-            if (!fs::exists(file_path)) {
-                Logger::Log("Failed to find module %s \n", file_path.c_str());
-                file_path = std::string(SYSTEM_32_DIRECTORY) + filename;
-                if (!fs::exists(file_path)) {
-                    file_path = std::string(SYSTEM_DRIVER_DIRECTORY) + filename;
-                    if (!fs::exists(file_path)) {
-                        DebugBreak();
-                        Logger::Log("Searched all known paths and still failed to find %s \n", filename);
+        LdrEntry.DllBase = (PVOID)pe_file->GetMappedImageBase();
+        LdrEntry.EntryPoint = (PVOID)pe_file->GetMappedImageBase(); // TODO parse PE header?
 
-                    }
-                }
-            }
-        }
+        Logger::Log("PDB for %s\n", found_path.c_str());
+        symparser::download_symbols(found_path);
 
-        if (fs::exists(file_path)) {
-            auto pe_file = PEFile::Open(file_path, filename);
-
-            LdrEntry.DllBase = (PVOID)pe_file->GetMappedImageBase();
-            LdrEntry.EntryPoint = (PVOID)pe_file->GetMappedImageBase(); // TODO parse PE header?
-
-
-            Logger::Log("PDB for %s\n", file_path.c_str());
-            symparser::download_symbols(file_path);
-
-            environment_module.insert(std::pair((uintptr_t)LdrEntry.DllBase, LdrEntry));
-        } else {
-            if (load_only_emu_mods) {
-                Logger::Log("Skipping %s.\n", filename);
-            } else {
-                Logger::Log("Warning: Couldn't find %s in any driver directories. Ignoring and not adding to module list\n", filename);
-            }
-            
-            //LdrEntry.DllBase = (PVOID)pMods->BaseInfo.ImageBase;
-            //LdrEntry.EntryPoint = (PVOID)pMods->BaseInfo.ImageBase; // TODO parse PE header?
-
-            // @todo: @es3n1n: resolve NT path to DOS path here and cache pdb
-            //
-        }
-
-       
-                
-        if (pMods->NextOffset != sizeof(_RTL_PROCESS_MODULE_INFORMATION_EX))
-            break;
+        environment_module.insert(std::pair((uintptr_t)LdrEntry.DllBase, LdrEntry));
 
         pMods = (PRTL_PROCESS_MODULE_INFORMATION_EX)((uintptr_t)pMods + pMods->NextOffset);
-        
     }
 
+    kace_modules = FilterSystemModules((PRTL_PROCESS_MODULE_INFORMATION_EX)module_data, kace_module_whitelist, true);
+    kace_modules_len = sizeof(_RTL_PROCESS_MODULE_INFORMATION_EX) * GetModuleCount(kace_modules);
+
+    // Links the entries together into a linked list, and initializes the list reference to PsLoadedModuleList.  An exported ntoskrnl symbol
     PLDR_DATA_TABLE_ENTRY head = 0;
-    
- 
+
     for (auto& [_, LdrEntry] : environment_module) {
         PLDR_DATA_TABLE_ENTRY TrackedLdrEntry = (PLDR_DATA_TABLE_ENTRY)MemoryTracker::AllocateVariable(sizeof(LDR_DATA_TABLE_ENTRY));
-
 
         memcpy(TrackedLdrEntry, &LdrEntry, sizeof(LdrEntry));
 
         if (!head) {
             head = TrackedLdrEntry;
             InitializeListHead(&head->InLoadOrderLinks);
-        }
-        else {
+        } else {
             InsertTailList(&head->InLoadOrderLinks, &TrackedLdrEntry->InLoadOrderLinks);
         }
 
         if (wcsstr(TrackedLdrEntry->BaseDllName.Buffer, L"ntoskrnl.exe"))
             PsLoadedModuleList = TrackedLdrEntry;
 
-        std::string VariableName = std::string("LdrEntry.")
-            + UtilStringFromWidestring(LdrEntry.BaseDllName.Buffer);
-        
+        std::string VariableName = std::string("LdrEntry.") + UtilStringFromWidestring(LdrEntry.BaseDllName.Buffer);
+
+        Logger::Log("%s \n", VariableName.c_str());
         MemoryTracker::TrackVariable((uintptr_t)TrackedLdrEntry, sizeof(LDR_DATA_TABLE_ENTRY), VariableName);
     }
-   
+    // free(module_data);
 }
 
 void Environment::CheckPtr(uint64_t ptr) {

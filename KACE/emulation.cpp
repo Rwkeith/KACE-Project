@@ -31,7 +31,7 @@ namespace VCPU {
 
         void InitializeMSR() {
 
-            auto sym = symparser::find_symbol("c:\\emu\\ntoskrnl.exe", "KiSystemCall64");
+            auto sym = symparser::find_symbol(Environment::ntoskrnl_path, "KiSystemCall64");
 
             if (sym && sym->rva) {
                 auto pe_file = PEFile::FindModule("ntoskrnl.exe");

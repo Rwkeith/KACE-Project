@@ -24,7 +24,7 @@ namespace ntoskrnl_export {
 
     void InitializeKiServiceTable() {
 
-        auto sym = symparser::find_symbol("c:\\emu\\ntoskrnl.exe", "KeServiceDescriptorTable"); //"KiServiceTable");
+        auto sym = symparser::find_symbol(Environment::ntoskrnl_path, "KeServiceDescriptorTable"); //"KiServiceTable");
 
         if (sym && sym->rva) {
             auto pe_file = PEFile::FindModule("ntoskrnl.exe");
