@@ -77,9 +77,7 @@ RTL_PROCESS_MODULES* Environment::FilterProcessModules(RTL_PROCESS_MODULES* proc
     new_proc_mods->NumberOfModules = new_proc_mod_list.size();
 
     int i = 0;
-    Logger::Log("proc_mods_to_ret->Modules: %p\n", new_proc_mods->Modules);
     for (auto module : new_proc_mod_list) {
-        Logger::Log("Writing to module data to: %p\n", &new_proc_mods->Modules[i]);
         memcpy(&new_proc_mods->Modules[i], module, sizeof(RTL_PROCESS_MODULE_INFORMATION));
         i++;
     }

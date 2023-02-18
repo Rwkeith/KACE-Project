@@ -1019,6 +1019,7 @@ void h_ObUnRegisterCallbacks(PVOID RegistrationHandle) {
 void* h_ObGetFilterVersion(void* arg) { return 0; }
 
 BOOLEAN h_MmIsAddressValid(PVOID VirtualAddress) {
+    Logger::Log("Address: %p\n", VirtualAddress);
     if ((uintptr_t)VirtualAddress <= 0x10000)
         return false;
     return true;
@@ -1052,6 +1053,12 @@ NTSTATUS h_ZwOpenSection(PHANDLE SectionHandle, ACCESS_MASK DesiredAccess, OBJEC
     Logger::Log("\tSection name : %ls, access : %llx, ret : %08x\n", ObjectAttributes->ObjectName->Buffer, DesiredAccess, ret);
 
     return ret;
+}
+
+NTSTATUS h_ZwOpenFile(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, _OBJECT_ATTRIBUTES* ObjectAttributes,
+    PVOID /*PIO_STATUS_BLOCK*/ IoStatusBlock, ULONG ShareAccess, ULONG OpenOptions) {
+    Logger::Log("Trying to open file: %ls \n", ObjectAttributes->ObjectName->Buffer);
+    return STATUS_SUCCESS;
 }
 
 
@@ -1525,14 +1532,25 @@ void h_PsReleaseProcessExitSynchronization(PVOID Process) {
     return;
 };
 
+// is case sensitive
 int h__strnicmp(const char* str1, const char* str2, uint64_t maxCount)
 {
     int res = _strnicmp(str1, str2, maxCount);
     if (!res)
-        Logger::Log("\033[38;5;46m[Info]\033[0m STRING MATCH ");
+        Logger::Log("\033[38;5;46m[Info]\033[0m STRING MATCH \n");
     Logger::Log("str1: %s str2: %s \n", str1, str2);
     return res;
 }
+
+// not case sensitive
+int h__stricmp(const char* str1, const char* str2, uint64_t maxCount) {
+    int res = _stricmp(str1, str2);
+    if (!res)
+        Logger::Log("\033[38;5;46m[Info]\033[0m STRING MATCH \n");
+    Logger::Log("str1: %s str2: %s \n", str1, str2);
+    return res;
+}
+
 
 uint64_t h_PsGetProcessImageFileName(uint64_t Process) { 
     if (auto HVA = MemoryTracker::GetHVA(Process)) {
@@ -1560,10 +1578,11 @@ void ntoskrnl_provider::Initialize() {
 
     Provider::AddFuncImpl("ObDereferenceObject", h_ObDereferenceObject);
     Provider::AddFuncImpl("_strnicmp", h__strnicmp);
+    Provider::AddFuncImpl("_stricmp", h__stricmp);
     Provider::AddFuncImpl("PsAcquireProcessExitSynchronization", h_PsAcquireProcessExitSynchronization);
     Provider::AddFuncImpl("PsReleaseProcessExitSynchronization", h_PsReleaseProcessExitSynchronization);
     Provider::AddFuncImpl("PsGetProcessImageFileName", h_PsGetProcessImageFileName);
-    
+    Provider::AddFuncImpl("ZwOpenFile", h_ZwOpenFile);
 
     Provider::AddFuncImpl("ExAcquireSpinLockShared", h_ExAcquireSpinLockShared);
     Provider::AddFuncImpl("ExReleaseSpinLockShared", h_ExReleaseSpinLockShared);
