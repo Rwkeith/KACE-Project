@@ -67,7 +67,7 @@ void TrampolineThread(ThreadInfo* info) {
     SetEvent(info->mutex);
     auto ret = info->routineStart(info->routineContext);
     Logger::Log("End of thread with return : %llx\n", ret);
-    
+
 }
 void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
     auto ptr = _aligned_malloc(size, 0x1000);
@@ -91,20 +91,48 @@ void h_DeAllocPool(uintptr_t ptr) {
 
 _ETHREAD* h_KeGetCurrentThread() { return (_ETHREAD*)__readgsqword(0x188); }
 
+// Note: we have to fix the length to match ours
 NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength) {
+    auto x = STATUS_SUCCESS;
 
-    auto x = NtQuerySystemInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
+    // don't need to perform a real ntquery if we already have these results made
+    if ((SystemInformationClass == 0x4D && !Environment::kace_modules) || (SystemInformationClass == 0xB && !Environment::kace_proc_modules)) {
+        x = NtQuerySystemInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
+        Logger::Log("\tClass %08x status : %08x\n", SystemInformationClass, x);
+    }
 
-    Logger::Log("\tClass %08x status : %08x\n", SystemInformationClass, x);
+    // length check case
+    if (x == 0xc0000004) {
+        if (SystemInformationClass == 0x4D)
+            *ReturnLength = Environment::kace_modules_len;
+        else if (SystemInformationClass == 0xB) {
+            if (Environment::kace_proc_modules) {
+                *ReturnLength = Environment::kace_proc_modules_len;
+            } else {
+                Environment::InitKaceProcModuleList();
+                *ReturnLength = Environment::kace_proc_modules_len;
+            }
+        } else {
+            DebugBreak(); // make other module list types.
+        }
+        return x;
+    }
 
-    if (x == 0) {
+    if (SystemInformationLength && x == 0) {
         Logger::Log("\tClass %08x success\n", SystemInformationClass);
-        if (SystemInformationClass == 0xb) { //SystemModuleInformation
+        // SystemModuleInformation
+        if (SystemInformationClass == 0xB) { 
+            if (!Environment::kace_proc_modules) {
+                Environment::InitKaceProcModuleList();
+            }
+
+            if (SystemInformationLength < Environment::kace_proc_modules_len)
+                DebugBreak();
+
+            memcpy((PVOID)SystemInformation, Environment::kace_proc_modules, Environment::kace_proc_modules_len);
+
             auto ptr = (char*)SystemInformation;
-            //*(uint64_t*)(ptr + 0x18) = GetModuleBase("ntoskrnl.exe");
-            ;
             RTL_PROCESS_MODULES* loadedmodules = (RTL_PROCESS_MODULES*)(SystemInformation);
-            // __NtRoutine("randededom", castTest->NumberOfModules);
             for (int i = 0; i < loadedmodules->NumberOfModules; i++) {
                 char* modulename = (char*)loadedmodules->Modules[i].FullPathName;
                 while (strstr(modulename, "\\"))
@@ -126,41 +154,42 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
             Logger::Log("\tBase is : %llx\n", *(uint64_t*)(ptr + 0x18));
 
         } else if (SystemInformationClass == 0x4D) { //SystemModuleInformation
-            auto ptr = (char*)SystemInformation;
-            //*(uint64_t*)(ptr + 0x18) = GetModuleBase("ntoskrnl.exe");
-            _SYSTEM_MODULE_EX* pMods = (_SYSTEM_MODULE_EX*)(SystemInformation);
-            ulong SizeRead = 0;
-            ulong NumModules = 0;
+            *ReturnLength = Environment::kace_modules_len;
+            // was a pointer passed in, and if it's 0, it's just
+            if (!SystemInformationLength && *(uint64_t*)SystemInformationLength != 0) {
+                // we need to give our kace_mods list, which is of length kace_modules len.  Our kace_mods list though, still has kernel addresses instead of our usermode ones.  do we want 2 copies?
+                if (*(uint64_t*)SystemInformationLength != Environment::kace_modules_len)
+                    DebugBreak(); // AC being weird >.>
 
-            while ((SizeRead + sizeof(_SYSTEM_MODULE_EX)) <= *ReturnLength) {
+                memcpy((PVOID)SystemInformation, Environment::kace_modules, Environment::kace_modules_len);
 
-                char* modulename = (char*)pMods->FullDllName;
-                while (strstr(modulename, "\\"))
-                    modulename++;
+                _SYSTEM_MODULE_EX* pMods
+                    = (_SYSTEM_MODULE_EX*)(SystemInformation); // _SYSTEM_MODULE_EX is the same size as _RTL_PROCESS_MODULE_INFORMATION_EX
+                ulong SizeRead = 0;
+                ulong NumModules = 0;
 
-                auto mapped_module = PEFile::FindModule(modulename);
-                if (mapped_module) {
-                    Logger::Log("\tPatching %s base from %llx to %llx\n", modulename, pMods->ImageBase, mapped_module->GetMappedImageBase());
-                    pMods->ImageBase = (PVOID)mapped_module->GetMappedImageBase();
+                while ((SizeRead + sizeof(_SYSTEM_MODULE_EX)) <= *ReturnLength) {
 
-                } else { //We're gonna pass the real module to the driver
-                    //pMods->ImageBase = (PVOID)500000;
-                    //pMods->LoadCount = 0;
+                    char* modulename = (char*)pMods->FullDllName;
+                    while (strstr(modulename, "\\"))
+                        modulename++;
+
+                    auto mapped_module = PEFile::FindModule(modulename);
+                    if (mapped_module) {
+                        Logger::Log("\tPatching %s base from %llx to %llx\n", modulename, pMods->ImageBase, mapped_module->GetMappedImageBase());
+                        pMods->ImageBase = (PVOID)mapped_module->GetMappedImageBase();
+                    }
+                    NumModules++;
+                    pMods++;
+                    SizeRead += sizeof(_SYSTEM_MODULE_EX);
                 }
-
-                NumModules++;
-                pMods++;
-                SizeRead += sizeof(_SYSTEM_MODULE_EX);
             }
-
-            Logger::Log("\tBase is : %llx\n", *(uint64_t*)(ptr + 0x18));
-
         } else if (SystemInformationClass == 0x5a) {
             SYSTEM_BOOT_ENVIRONMENT_INFORMATION* pBootInfo = (SYSTEM_BOOT_ENVIRONMENT_INFORMATION*)SystemInformation;
             Logger::Log("\tBoot info buffer : %llx\n", (void*)pBootInfo);
         }
+        return x;
     }
-    return x;
 }
 
 uint64_t h_RtlRandomEx(unsigned long* seed) {
@@ -795,7 +824,7 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName) {
 
     Logger::Log("\Trying to get %s ptr\n", cStr);
 
-    auto sym = symparser::find_symbol("c:\\emu\\ntoskrnl.exe", cStr);
+    auto sym = symparser::find_symbol(Environment::ntoskrnl_path, cStr);
     if (sym && sym->rva) {
         auto pe_file = PEFile::FindModule("ntoskrnl.exe");
         funcptr = (PVOID)(pe_file->GetMappedImageBase() + sym->rva);
@@ -853,8 +882,7 @@ int h__vsnwprintf(wchar_t* buffer, size_t count, const wchar_t* format, va_list 
 
 //todo fix mutex bs
 void h_KeInitializeMutex(PVOID Mutex, ULONG level) { 
-    DebugBreak();
-
+    // DebugBreak();
 }
 
 LONG h_KeReleaseMutex(PVOID Mutex, BOOLEAN Wait) { 
@@ -991,6 +1019,7 @@ void h_ObUnRegisterCallbacks(PVOID RegistrationHandle) {
 void* h_ObGetFilterVersion(void* arg) { return 0; }
 
 BOOLEAN h_MmIsAddressValid(PVOID VirtualAddress) {
+    Logger::Log("Address: %p\n", VirtualAddress);
     if ((uintptr_t)VirtualAddress <= 0x10000)
         return false;
     return true;
@@ -1024,6 +1053,12 @@ NTSTATUS h_ZwOpenSection(PHANDLE SectionHandle, ACCESS_MASK DesiredAccess, OBJEC
     Logger::Log("\tSection name : %ls, access : %llx, ret : %08x\n", ObjectAttributes->ObjectName->Buffer, DesiredAccess, ret);
 
     return ret;
+}
+
+NTSTATUS h_ZwOpenFile(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, _OBJECT_ATTRIBUTES* ObjectAttributes,
+    PVOID /*PIO_STATUS_BLOCK*/ IoStatusBlock, ULONG ShareAccess, ULONG OpenOptions) {
+    Logger::Log("Trying to open file: %ls \n", ObjectAttributes->ObjectName->Buffer);
+    return STATUS_SUCCESS;
 }
 
 
@@ -1497,14 +1532,25 @@ void h_PsReleaseProcessExitSynchronization(PVOID Process) {
     return;
 };
 
+// is case sensitive
 int h__strnicmp(const char* str1, const char* str2, uint64_t maxCount)
 {
     int res = _strnicmp(str1, str2, maxCount);
     if (!res)
-        Logger::Log("\033[38;5;46m[Info]\033[0m STRING MATCH ");
+        Logger::Log("\033[38;5;46m[Info]\033[0m STRING MATCH \n");
     Logger::Log("str1: %s str2: %s \n", str1, str2);
     return res;
 }
+
+// not case sensitive
+int h__stricmp(const char* str1, const char* str2, uint64_t maxCount) {
+    int res = _stricmp(str1, str2);
+    if (!res)
+        Logger::Log("\033[38;5;46m[Info]\033[0m STRING MATCH \n");
+    Logger::Log("str1: %s str2: %s \n", str1, str2);
+    return res;
+}
+
 
 uint64_t h_PsGetProcessImageFileName(uint64_t Process) { 
     if (auto HVA = MemoryTracker::GetHVA(Process)) {
@@ -1532,10 +1578,11 @@ void ntoskrnl_provider::Initialize() {
 
     Provider::AddFuncImpl("ObDereferenceObject", h_ObDereferenceObject);
     Provider::AddFuncImpl("_strnicmp", h__strnicmp);
+    Provider::AddFuncImpl("_stricmp", h__stricmp);
     Provider::AddFuncImpl("PsAcquireProcessExitSynchronization", h_PsAcquireProcessExitSynchronization);
     Provider::AddFuncImpl("PsReleaseProcessExitSynchronization", h_PsReleaseProcessExitSynchronization);
     Provider::AddFuncImpl("PsGetProcessImageFileName", h_PsGetProcessImageFileName);
-    
+    Provider::AddFuncImpl("ZwOpenFile", h_ZwOpenFile);
 
     Provider::AddFuncImpl("ExAcquireSpinLockShared", h_ExAcquireSpinLockShared);
     Provider::AddFuncImpl("ExReleaseSpinLockShared", h_ExReleaseSpinLockShared);

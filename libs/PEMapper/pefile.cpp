@@ -2,7 +2,7 @@
 #include <Logger/Logger.h>
 #include <SymParser\symparser.hpp>
 
-#define IMPORT_MODULE_DIRECTORY "c:\\emu\\"
+#define IMPORT_MODULE_DIRECTORY "c:\\emu\\driver\\"
 
 std::unordered_map<std::string, PEFile*> PEFile::moduleList_namekey;
 std::vector<PEFile*> PEFile::LoadedModuleArray;

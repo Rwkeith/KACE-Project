@@ -3,6 +3,9 @@
 #include "ntoskrnl_provider.h"
 #include "provider.h"
 #include "environment.h"
+#include <SymParser/symparser.hpp>
+#include <PEMapper/pefile.h>
+
 namespace ntoskrnl_export {
     void Initialize() { InitializeExport(); }
 
@@ -17,6 +20,20 @@ namespace ntoskrnl_export {
 
     void InitializePsLoadedModuleList() {
         PsLoadedModuleList = Environment::PsLoadedModuleList;
+    }
+
+    void InitializeKiServiceTable() {
+
+        auto sym = symparser::find_symbol(Environment::ntoskrnl_path, "KeServiceDescriptorTable"); //"KiServiceTable");
+
+        if (sym && sym->rva) {
+            auto pe_file = PEFile::FindModule("ntoskrnl.exe");
+            KeServiceDescriptorTable = (uint64_t)(pe_file->GetMappedImageBase() + sym->rva);
+            Logger::Log("Address of KeServiceDescriptorTable: %p\n", KeServiceDescriptorTable);
+            Logger::Log("Value of KeServiceDescriptorTable: %p\n", *(uint64_t*)KeServiceDescriptorTable);
+        } else {
+            Logger::Log("Failed to find KiServiceTable");
+        }
     }
 
     void InitializeExport() {
@@ -38,5 +55,9 @@ namespace ntoskrnl_export {
         Provider::AddDataImpl("MmSystemRangeStart", &MmSystemRangeStart, sizeof(MmSystemRangeStart));
         Provider::AddDataImpl("MmUserProbeAddress", &MmUserProbeAddress, sizeof(MmUserProbeAddress));
         Provider::AddDataImpl("MmHighestUserAddress", &MmHighestUserAddress, sizeof(MmHighestUserAddress));
+
+
+        InitializeKiServiceTable();
+        Provider::AddDataImpl("KeServiceDescriptorTable", &KeServiceDescriptorTable, sizeof(KeServiceDescriptorTable));
     }
 } // namespace ntoskrnl_export

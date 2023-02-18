@@ -33,6 +33,8 @@ MONITOR const char SeExport[]
 
 //These are not analyzed yet to be correct type
 
+MONITOR uint64_t KeServiceDescriptorTable = 0;
+
 MONITOR uint64_t CcFastMdlReadWait = 0;
 MONITOR uint64_t CmKeyObjectType = 0;
 MONITOR uint64_t ExActivationObjectType = 0;
