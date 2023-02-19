@@ -97,7 +97,7 @@ PRTL_PROCESS_MODULE_INFORMATION_EX Environment::FilterSystemModules(PRTL_PROCESS
         skip = true;
     else
         skip = false;
-
+    
     for (int i = 0; i < mod_count; i++) {
         auto file_name = (const char*)temp->BaseInfo.FullPathName + temp->BaseInfo.OffsetToFileName;
         for (auto name : filter_list) {

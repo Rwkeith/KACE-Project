@@ -35,6 +35,9 @@ uintptr_t Provider::FindFuncImpl(uintptr_t ptr) {
     }
 
     Logger::Log("Executing %s!%s\n", pe_file->name.c_str(), exported_func);
+    if (!strcmp(exported_func, "ZwCreateSection"))
+        DebugBreak();
+
 
     if (function_providers.contains(exported_func))
         return (uintptr_t)function_providers[exported_func];

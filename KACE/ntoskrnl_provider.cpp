@@ -70,7 +70,27 @@ void TrampolineThread(ThreadInfo* info) {
 
 }
 void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
-    auto ptr = _aligned_malloc(size, 0x1000);
+    static int counter = 0;
+    static void* ptr_to_track;
+    std::string var_name_0 = "PoolWithTag";
+    std::string var_name = var_name_0 + std::to_string(counter);
+    auto ptr = _aligned_malloc(size + 0x1000, 0x1000);
+    if (counter == 1) {
+        ptr_to_track = ptr;
+    }
+
+    if (counter == 10) {
+        Logger::Log("Address of KiServiceTable: %p \n", KiServiceTable);
+        Logger::Log("Address of KeServiceDescriptorTable: %p \n", KeServiceDescriptorTable);
+        // Logger::Log("*KeServiceDescriptorTable: %p\n", *(uint64_t*)KeServiceDescriptorTable);
+        // *(uint64_t*)KeServiceDescriptorTable = 0;
+        // MemoryTracker::TrackVariable((uintptr_t)KiServiceTable, 0x1000, "FakeSSDT");
+        // *(uint64_t*)KeServiceDescriptorTable = KiServiceTable;
+        MemoryTracker::TrackVariable((uintptr_t)ptr_to_track, size+0x100, var_name);
+    }
+
+    Logger::Log("Allocated Memory at address: %p\n", ptr);
+    counter += 1;
     return ptr;
 }
 
@@ -93,6 +113,7 @@ _ETHREAD* h_KeGetCurrentThread() { return (_ETHREAD*)__readgsqword(0x188); }
 
 // Note: we have to fix the length to match ours
 NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength) {
+    //*(uint32_t*)KiServiceTable = 0;
     auto x = STATUS_SUCCESS;
 
     // don't need to perform a real ntquery if we already have these results made

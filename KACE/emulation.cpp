@@ -481,7 +481,7 @@ namespace VCPU {
         }
 
         bool EmulateRead(uintptr_t addr, PCONTEXT context, ZydisDecodedInstruction* instr) { //We return true if we emulated it
-            Logger::Log("Trying to emulate read on addr %p which contains %p", addr, *(uint64_t*)addr);
+            Logger::Log("Trying to emulate read on addr %p which contains %p\n", addr, *(uint64_t*)addr);
             if (instr->mnemonic == ZYDIS_MNEMONIC_MOV) {
                 if (instr->operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER) {
                     InstrEmu::ReadPtr::EmulateMOV(context, instr->operands[0].reg.value, addr, instr);

@@ -33,7 +33,7 @@ namespace ntoskrnl_export {
             // KiServiceTable = // (uint64_t)fake_ssdt;
             Logger::Log("Address of KiServiceTable: %p\n", KiServiceTable);
             Logger::Log("KiServiceTable first 2 entries: %p\n", *(uint64_t*)KiServiceTable);
-            // KiServiceTable_ = *(uint64_t*)KiServiceTable;
+
             
 
             // *(uint32_t*)KiServiceTable = 0;
