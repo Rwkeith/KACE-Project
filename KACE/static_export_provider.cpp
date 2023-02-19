@@ -22,37 +22,15 @@ namespace ntoskrnl_export {
         PsLoadedModuleList = Environment::PsLoadedModuleList;
     }
 
-    void InitKiServiceTable() {
-        auto sym = symparser::find_symbol(Environment::ntoskrnl_path, "KiServiceTable"); //"KiServiceTable");
-
-        if (sym && sym->rva) {
-            auto pe_file = PEFile::FindModule("ntoskrnl.exe");
-            KiServiceTable = (uint64_t)(pe_file->GetMappedImageBase() + sym->rva);
-            auto fake_ssdt = _aligned_malloc(0x1000, 0x1000);
-            memset(fake_ssdt, 1, 0x1000);
-            // KiServiceTable = // (uint64_t)fake_ssdt;
-            Logger::Log("Address of KiServiceTable: %p\n", KiServiceTable);
-            Logger::Log("KiServiceTable first 2 entries: %p\n", *(uint64_t*)KiServiceTable);
-            // KiServiceTable_ = *(uint64_t*)KiServiceTable;
-            
-
-            // *(uint32_t*)KiServiceTable = 0;
-            // Logger::Log("New value of KiServiceTable entry 0,1: %p", *(uint64_t*)KiServiceTable);
-        } else {
-            Logger::Log("Failed to find KiServiceTable");
-        }
-    }
-
+    // Can be used to find KeDescriptorTable by walking KiSystemCall64 and finding the LEA instr referencing it.  From there, it's dereferenced to get
+    // KiServiceTable, which is a table of offsets.
     void InitKeDescriptorTable() {
 
-        auto sym = symparser::find_symbol(Environment::ntoskrnl_path, "KeServiceDescriptorTable"); //"KiServiceTable");
-
+        auto sym = symparser::find_symbol(Environment::ntoskrnl_path, "KiServiceTable");
         if (sym && sym->rva) {
             auto pe_file = PEFile::FindModule("ntoskrnl.exe");
-            KeServiceDescriptorTable = KiServiceTable; // 0x0102030405060708;  // (uint64_t)(pe_file->GetMappedImageBase() + sym->rva);
-            // *(uint64_t*)KeServiceDescriptorTable = 0;  // 0xDEADB00FF00FB00F; // KiServiceTable;
+            KeServiceDescriptorTable = (uint64_t)(pe_file->GetMappedImageBase() + sym->rva); // KiServiceTable;
             Logger::Log("Address of KeServiceDescriptorTable: %p\n", KeServiceDescriptorTable);
-            // Logger::Log("Set Value of KeServiceDescriptorTable to KiServiceTable: %p\n", *(uint64_t*)KeServiceDescriptorTable);
         } else {
             Logger::Log("Failed to find KeServiceDescriptorTable");
         }
@@ -77,9 +55,6 @@ namespace ntoskrnl_export {
         Provider::AddDataImpl("MmSystemRangeStart", &MmSystemRangeStart, sizeof(MmSystemRangeStart));
         Provider::AddDataImpl("MmUserProbeAddress", &MmUserProbeAddress, sizeof(MmUserProbeAddress));
         Provider::AddDataImpl("MmHighestUserAddress", &MmHighestUserAddress, sizeof(MmHighestUserAddress));
-
-        InitKiServiceTable();
-        // Provider::AddDataImpl("KiServiceTable", &KiServiceTable, 0x4000);
 
         InitKeDescriptorTable();
         Provider::AddDataImpl("KeServiceDescriptorTable", &KeServiceDescriptorTable, sizeof(KeServiceDescriptorTable));
