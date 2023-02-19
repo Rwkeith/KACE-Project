@@ -71,22 +71,19 @@ void TrampolineThread(ThreadInfo* info) {
 }
 void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
     static int counter = 0;
-    static void* ptr_to_track;
-    std::string var_name_0 = "PoolWithTag";
-    std::string var_name = var_name_0 + std::to_string(counter);
-    auto ptr = _aligned_malloc(size + 0x1000, 0x1000);
+    static void* g_ntoskrnl;
+    //static void* global_module_entries;
+    //std::string var_name_0 = "PoolWithTag";
+    //std::string var_name = var_name_0 + std::to_string(counter);
+    auto ptr = _aligned_malloc(size, 0x1000);
+
     if (counter == 1) {
-        ptr_to_track = ptr;
+        global_module_entries = g_ntoskrnl = ptr;
     }
 
     if (counter == 10) {
-        Logger::Log("Address of KiServiceTable: %p \n", KiServiceTable);
-        Logger::Log("Address of KeServiceDescriptorTable: %p \n", KeServiceDescriptorTable);
-        // Logger::Log("*KeServiceDescriptorTable: %p\n", *(uint64_t*)KeServiceDescriptorTable);
-        // *(uint64_t*)KeServiceDescriptorTable = 0;
-        // MemoryTracker::TrackVariable((uintptr_t)KiServiceTable, 0x1000, "FakeSSDT");
-        // *(uint64_t*)KeServiceDescriptorTable = KiServiceTable;
-        MemoryTracker::TrackVariable((uintptr_t)ptr_to_track, size+0x100, var_name);
+        // Will cause some recursive read access issues.  There be Dragons here
+        // MemoryTracker::TrackVariable((uintptr_t)g_ntoskrnl, size, std::string("g_ntoskrnl"));
     }
 
     Logger::Log("Allocated Memory at address: %p\n", ptr);
@@ -1079,7 +1076,8 @@ NTSTATUS h_ZwOpenSection(PHANDLE SectionHandle, ACCESS_MASK DesiredAccess, OBJEC
 NTSTATUS h_ZwOpenFile(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, _OBJECT_ATTRIBUTES* ObjectAttributes,
     PVOID /*PIO_STATUS_BLOCK*/ IoStatusBlock, ULONG ShareAccess, ULONG OpenOptions) {
     Logger::Log("Trying to open file: %ls \n", ObjectAttributes->ObjectName->Buffer);
-    return STATUS_SUCCESS;
+    return -1;  // TODO
+    // return STATUS_SUCCESS;
 }
 
 
