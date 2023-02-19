@@ -78,7 +78,7 @@ void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
     auto ptr = _aligned_malloc(size, 0x1000);
 
     if (counter == 1) {
-        global_module_entries = g_ntoskrnl = ptr;
+        g_ntoskrnl = ptr;
     }
 
     if (counter == 10) {
@@ -87,7 +87,6 @@ void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
     }
 
     Logger::Log("Allocated Memory at address: %p\n", ptr);
-    counter += 1;
     return ptr;
 }
 
@@ -110,7 +109,6 @@ _ETHREAD* h_KeGetCurrentThread() { return (_ETHREAD*)__readgsqword(0x188); }
 
 // Note: we have to fix the length to match ours
 NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength) {
-    //*(uint32_t*)KiServiceTable = 0;
     auto x = STATUS_SUCCESS;
 
     // don't need to perform a real ntquery if we already have these results made
@@ -167,15 +165,12 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
                     //loadedmodules->Modules[i].LoadCount = 0;
                 }
             }
-            //MemoryTracker::TrackVariable((uintptr_t)ptr, SystemInformationLength, (char*)"NtQuerySystemInformation"); BAD IDEA
 
             Logger::Log("\tBase is : %llx\n", *(uint64_t*)(ptr + 0x18));
 
         } else if (SystemInformationClass == 0x4D) { //SystemModuleInformation
             *ReturnLength = Environment::kace_modules_len;
-            // was a pointer passed in, and if it's 0, it's just
             if (!SystemInformationLength && *(uint64_t*)SystemInformationLength != 0) {
-                // we need to give our kace_mods list, which is of length kace_modules len.  Our kace_mods list though, still has kernel addresses instead of our usermode ones.  do we want 2 copies?
                 if (*(uint64_t*)SystemInformationLength != Environment::kace_modules_len)
                     DebugBreak(); // AC being weird >.>
 
