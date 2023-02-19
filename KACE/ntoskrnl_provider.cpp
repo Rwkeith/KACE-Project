@@ -70,7 +70,21 @@ void TrampolineThread(ThreadInfo* info) {
 
 }
 void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
+    static int counter = 0;
+    static void* g_ntoskrnl;
+    //static void* global_module_entries;
+    //std::string var_name_0 = "PoolWithTag";
+    //std::string var_name = var_name_0 + std::to_string(counter);
     auto ptr = _aligned_malloc(size, 0x1000);
+
+    if (counter == 1) {
+        g_ntoskrnl = ptr;
+    }
+
+    if (counter == 10) {
+        // Will cause some recursive read access issues.  There be Dragons here
+        // MemoryTracker::TrackVariable((uintptr_t)g_ntoskrnl, size, std::string("g_ntoskrnl"));
+    }
 
     Logger::Log("Allocated Memory at address: %p\n", ptr);
     return ptr;
@@ -1057,7 +1071,7 @@ NTSTATUS h_ZwOpenSection(PHANDLE SectionHandle, ACCESS_MASK DesiredAccess, OBJEC
 NTSTATUS h_ZwOpenFile(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, _OBJECT_ATTRIBUTES* ObjectAttributes,
     PVOID /*PIO_STATUS_BLOCK*/ IoStatusBlock, ULONG ShareAccess, ULONG OpenOptions) {
     Logger::Log("Trying to open file: %ls \n", ObjectAttributes->ObjectName->Buffer);
-    return -1; // until we finish implementing handle usage
+    return -1;  // TODO
     // return STATUS_SUCCESS;
 }
 

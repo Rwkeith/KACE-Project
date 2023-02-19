@@ -98,6 +98,24 @@ namespace VCPU {
         return lookup / 8;
     }
 
+    // looks up xmm0 to xmm31
+    static uint32_t XmmRegIndex(ZydisRegister Reg) {
+        
+        PCONTEXT resolver = 0;
+
+        auto lookup = (uint32_t)&resolver->Xmm0;
+        auto zydis_xmm0 = ZYDIS_REGISTER_XMM0;
+
+        auto index = Reg - zydis_xmm0;
+
+        if (index < 0 || index > 31)
+            return 0;
+
+        lookup += index * sizeof(M128A);
+
+        return lookup / 16;  // 16 bytes, 128 bit regs
+    }
+
     static uint64_t ReadRegisterValue(PCONTEXT ctx, ZydisRegister reg) {
         uint64_t* context_lookup = (uint64_t*)ctx;
         auto reg_class = ZydisRegisterGetClass(reg);
@@ -572,15 +590,23 @@ namespace VCPU {
                     DebugBreak();
                 }
             } else if (instr->mnemonic == ZYDIS_MNEMONIC_MOVZX) {
-                if (instr->operands[1].type == ZYDIS_OPERAND_TYPE_MEMORY && instr->operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER) { //cmp reg, [memory]
+                if (instr->operands[1].type == ZYDIS_OPERAND_TYPE_MEMORY && instr->operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER) { //movzx reg, [memory]
                     InstrEmu::ReadPtr::EmulateMOVZX(context, instr->operands[0].reg.value, addr, instr->operands[1].size, instr);
                     return SkipToNext(context, instr);
                 } else {
                     DebugBreak();
                 }
             } else if (instr->mnemonic == ZYDIS_MNEMONIC_MOVSXD) {
-                if (instr->operands[1].type == ZYDIS_OPERAND_TYPE_MEMORY && instr->operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER) { //cmp reg, [memory]
+                if (instr->operands[1].type == ZYDIS_OPERAND_TYPE_MEMORY && instr->operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER) { //movsxd reg, [memory]
                     InstrEmu::ReadPtr::EmulateMOVSX(context, instr->operands[0].reg.value, addr, instr->operands[1].size, instr);
+                    return SkipToNext(context, instr);
+                } else {
+                    DebugBreak();
+                }
+            } else if (instr->mnemonic == ZYDIS_MNEMONIC_MOVUPS) {
+                if (instr->operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER
+                    && instr->operands[1].type == ZYDIS_OPERAND_TYPE_MEMORY) { // movups reg, [reg]
+                    InstrEmu::ReadPtr::EmulateMOVUPS(context, instr->operands[0].reg.value, addr, instr->operands[1].size, instr);
                     return SkipToNext(context, instr);
                 } else {
                     DebugBreak();
@@ -588,7 +614,11 @@ namespace VCPU {
             }
 
             else {
-                Logger::Log("Unhandled Mnemonic for KUSER_SHARED_DATA manipulation.\n");
+                ZydisFormatter formatter;
+                ZydisFormatterInit(&formatter, ZYDIS_FORMATTER_STYLE_INTEL);
+                char buffer[256];
+                ZydisFormatterFormatInstruction(&formatter, instr, buffer, sizeof(buffer), ZYDIS_RUNTIME_ADDRESS_NONE);
+                Logger::Log("Unhandled instruction in read emulation: %s\n", buffer);
                 DebugBreak();
                 return false;
             }
@@ -915,6 +945,20 @@ namespace VCPU {
                 else {
                     DebugBreak();
                 }
+                return true;
+            }
+
+            bool EmulateMOVUPS(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size, ZydisDecodedInstruction* instr) { // MOVUPS R128, 8/16[PTR] emulation
+                M128A* context_lookup = (M128A*)ctx;
+                auto reg_class = ZydisRegisterGetClass(reg);
+                auto orig_value = context_lookup[XmmRegIndex(reg)];
+
+                if (size == 128) {
+                    context_lookup[XmmRegIndex(reg)] = *(M128A*)ptr;
+                } else {
+                    DebugBreak();   // this can happen?
+                }
+
                 return true;
             }
 
