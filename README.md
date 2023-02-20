@@ -4,6 +4,8 @@
 Continuation of the original KACE project from waryas and friends
 
 
+## Functional Diagram
+![alt text](https://drive.google.com/uc?export=view&id=1yxhjL3jBhpJIJbLO9AvpUxS4kEja9qJs)
 
 
 ## Options
