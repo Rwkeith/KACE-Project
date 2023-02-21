@@ -148,7 +148,7 @@ namespace VCPU {
     namespace PrivilegedInstruction {
         bool Parse(PCONTEXT context) {
             ZydisDecodedInstruction instr;
-
+            
             if (!Decode(context, &instr))
                 return false;
 
@@ -177,7 +177,15 @@ namespace VCPU {
             else if (instr.mnemonic == ZYDIS_MNEMONIC_INVLPG) {
                 Logger::Log("Invalidating cache\n");
                 return SkipToNext(context, &instr);
+            } 
+            else if (instr.mnemonic == ZYDIS_MNEMONIC_OUT) {
+                WritePIO(context, &instr);
+                return SkipToNext(context, &instr);
+            } else if (instr.mnemonic == ZYDIS_MNEMONIC_IN) {
+                ReadPIO(context, &instr);
+                return SkipToNext(context, &instr);
             }
+
             else {
                 DebugBreak();
                 return false;
@@ -284,6 +292,20 @@ namespace VCPU {
             Logger::Log("Writing MSR %s : %llx\n", MSRName.c_str(), NewMSRValue);
             return true;
         }
+
+        bool ReadPIO(PCONTEXT context, ZydisDecodedInstruction* instr) {
+            // ex:   in  eax, dx    <- eax <= result , dx = addr to read
+            // just handle first case, later can fully emulate if necessary.
+            context->Rax = 0;
+            return true;
+        }
+
+        bool WritePIO(PCONTEXT context, ZydisDecodedInstruction* instr) {
+            // DriverBuddy coming soon....
+            return true;
+        }
+
+
 
     } // namespace PrivilegedInstruction
 
