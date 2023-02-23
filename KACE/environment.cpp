@@ -133,6 +133,67 @@ PRTL_PROCESS_MODULE_INFORMATION_EX Environment::FilterSystemModules(PRTL_PROCESS
     return new_mod_info;
 }
 
+SYSTEM_PROCESS_INFORMATION* Environment::FilterProcesses(SYSTEM_PROCESS_INFORMATION* ProcList, std::vector<int> filter) {
+
+    int number = 0;
+
+    while (ProcList) {
+
+        number++;
+
+        if (ProcList->NextEntryOffset == 0) {
+            break;
+        }
+
+        ProcList = (PSYSTEM_PROCESS_INFORMATION)((PUCHAR)ProcList + ProcList->NextEntryOffset);
+    }
+
+    std::vector<PSYSTEM_PROCESS_INFORMATION> new_proc_list;
+
+    while (ProcList) {
+
+        if (ProcList->NextEntryOffset == 0) {
+            break;
+        }
+
+        if (std::find(filter.begin(), filter.end(), ProcList->ProcessId) != filter.end()) {
+            auto full_size = sizeof(SYSTEM_PROCESS_INFORMATION) + (ProcList->NumberOfThreads * sizeof(SYSTEM_THREAD));
+            auto p = malloc(full_size);
+
+            memcpy(p, ProcList, full_size);
+            new_proc_list.push_back((SYSTEM_PROCESS_INFORMATION*)p);
+        }
+
+        ProcList = (PSYSTEM_PROCESS_INFORMATION)((PUCHAR)ProcList + ProcList->NextEntryOffset);
+    }
+
+    //  PSYSTEM_PROCESS_INFORMATION newprocinfo = new SYSTEM_PROCESS_INFORMATION[new_proc_list.size()]; compiler doesn't like this and i dont understand why
+
+    auto newarray = malloc(new_proc_list.capacity());
+
+    auto temp = newarray;
+
+    for (auto i = 0; i < new_proc_list.size(); i++) {
+
+        auto cur = new_proc_list[i];
+
+        auto full_size = sizeof(SYSTEM_PROCESS_INFORMATION) + (cur->NumberOfThreads * sizeof(SYSTEM_THREAD));
+
+        if (i + 1 < new_proc_list.size()) {
+            auto nextElement = new_proc_list[i + 1];
+            auto nextoffset = sizeof(SYSTEM_PROCESS_INFORMATION) + (nextElement->NumberOfThreads * sizeof(SYSTEM_THREAD));
+            cur->NextEntryOffset = nextoffset;
+        }
+        memcpy(temp, cur, full_size);
+
+        temp = (void*)((uintptr_t)temp + full_size);
+    }
+
+    kace_proc_len = new_proc_list.capacity();
+
+    return (SYSTEM_PROCESS_INFORMATION*)newarray;
+}
+
 // tries using the absolute path if given, then tries other system directories
 // returns file path on success or empty std::string on fail    (system_file, (const char*)pMods->BaseInfo.FullPathName);
 std::string Environment::GetSystemFilePath(std::string system_file, std::string absolute_path) {
@@ -195,7 +256,8 @@ void Environment::InitKaceProcModuleList() {
     kace_proc_modules = FilterProcessModules((RTL_PROCESS_MODULES*)module_data, kace_module_whitelist, true);
     kace_proc_modules_len = (kace_proc_modules->NumberOfModules * sizeof(RTL_PROCESS_MODULE_INFORMATION)) + sizeof(uint32_t);
     // free(module_data);
- }
+}
+
 
 void Environment::InitializeSystemModules(bool load_only_emu_mods) {
     uint64_t len = 0;
@@ -306,6 +368,23 @@ void Environment::InitializeSystemModules(bool load_only_emu_mods) {
         MemoryTracker::TrackVariable((uintptr_t)TrackedLdrEntry, sizeof(LDR_DATA_TABLE_ENTRY), VariableName);
     }
     // free(module_data);
+}
+
+void Environment::InitializeProcesses() 
+{
+    uint64_t len = 0;
+    PVOID module_data = 0;
+    auto ret = __NtRoutine("NtQuerySystemInformation", 0x5, 0, 0, &len);
+    if (ret != 0) {
+        module_data = malloc(len);
+        memset(module_data, 0, len);
+        ret = __NtRoutine("NtQuerySystemInformation", 0x5, module_data, len, &len);
+    }
+
+    std::vector<int> TargetIDs;
+    TargetIDs.emplace_back(0);
+
+    kace_processes = FilterProcesses((SYSTEM_PROCESS_INFORMATION*)module_data, TargetIDs);
 }
 
 void Environment::CheckPtr(uint64_t ptr) {
