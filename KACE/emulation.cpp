@@ -970,6 +970,8 @@ namespace VCPU {
                 return true;
             }
 
+
+            // DO NOT TURN ON COMPILER OPTIMIZATIONS, THERE BE DRAGONS
             bool EmulateMOVUPS(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size, ZydisDecodedInstruction* instr) { // MOVUPS R128, 8/16[PTR] emulation
                 M128A* context_lookup = (M128A*)ctx;
                 auto reg_class = ZydisRegisterGetClass(reg);

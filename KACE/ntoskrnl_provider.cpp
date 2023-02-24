@@ -172,7 +172,7 @@ void FilterModuleInformationx4D(uint32_t SystemInformationClass, uintptr_t Syste
 
 NTSTATUS FilterSystemProcessInformation(uint32_t SystemInformationClass, uintptr_t SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength) {
     
-    if (*(uint64_t*)SystemInformationLength != Environment::kace_proc_len)
+    if (SystemInformationLength < Environment::kace_proc_len)
         DebugBreak(); // AC being weird >.>
 
     memcpy((void*)SystemInformation, Environment::kace_processes, Environment::kace_proc_len);
@@ -194,16 +194,41 @@ NTSTATUS Filter0x5a(uint32_t SystemInformationClass, uintptr_t SystemInformation
 NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength) {
     auto x = STATUS_SUCCESS;
 
-    // don't need to perform a real ntquery if we already have these results made
-    if ((SystemInformationClass == 0x4D && !Environment::kace_modules) || (SystemInformationClass == 0xB && !Environment::kace_proc_modules)) {
-        x = NtQuerySystemInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
-        Logger::Log("\tClass %08x status : %08x\n", SystemInformationClass, x);
+    if (SystemInformationLength) {
+        switch (SystemInformationClass) {
+
+        case 0xB: //SystemModuleInformation
+            FilterModuleInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
+            break;
+
+        case 0x4D: //SystemModuleInformation
+            FilterModuleInformationx4D(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
+            break;
+        case 0x5a:
+            Filter0x5a(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
+            break;
+        case 0x5:
+            FilterSystemProcessInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
+            break;
+        default:
+            break;
+        }
+        return x;
     }
+
+    x = NtQuerySystemInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
+    Logger::Log("\tClass %08x status : %08x\n", SystemInformationClass, x);
+
 
     // length check case
     if (x == 0xc0000004) {
-        if (SystemInformationClass == 0x4D)
-            *ReturnLength = Environment::kace_modules_len;
+        if (SystemInformationClass == 0x4D) {
+            if (Environment::kace_modules) {
+                *ReturnLength = Environment::kace_modules_len;
+            } else {
+                DebugBreak(); //should never happen
+            }
+        }
         else if (SystemInformationClass == 0xB) {
             if (Environment::kace_proc_modules) {
                 *ReturnLength = Environment::kace_proc_modules_len;
@@ -224,31 +249,9 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
         return x;
     }
 
-    if (SystemInformationLength && x == 0) {
-        Logger::Log("\tClass %08x success\n", SystemInformationClass);
-        switch (SystemInformationClass) {
 
-        case 0xB: //SystemModuleInformation
-            FilterModuleInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
-            break;
 
-        case 0x4D: //SystemModuleInformation
-            FilterModuleInformationx4D(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
-            break;
-
-        case 0x5a:
-            x = Filter0x5a(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
-
-            break;
-
-        case 0x5:
-            x = FilterSystemProcessInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
-            break;
-        default:
-            break;
-        }
-        return x;
-    }
+    return x;
 }
 
 uint64_t h_RtlRandomEx(unsigned long* seed) {

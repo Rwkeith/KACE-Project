@@ -134,62 +134,46 @@ PRTL_PROCESS_MODULE_INFORMATION_EX Environment::FilterSystemModules(PRTL_PROCESS
 }
 
 SYSTEM_PROCESS_INFORMATION* Environment::FilterProcesses(SYSTEM_PROCESS_INFORMATION* ProcList, std::vector<int> filter) {
-
-    int number = 0;
-
-    while (ProcList) {
-
-        number++;
-
-        if (ProcList->NextEntryOffset == 0) {
-            break;
-        }
-
-        ProcList = (PSYSTEM_PROCESS_INFORMATION)((PUCHAR)ProcList + ProcList->NextEntryOffset);
-    }
-
+        
     std::vector<PSYSTEM_PROCESS_INFORMATION> new_proc_list;
+    int number = 0;
+    auto filtered_size = 0;
+    auto temp = ProcList;
 
-    while (ProcList) {
+    // Get size
+    while (temp) {
+        
+        if (temp->NextEntryOffset == 0 || number == filter.size()) {
+            break;
+        }
+        
+        if (std::find(filter.begin(), filter.end(), (uint64_t)temp->ProcessId) != filter.end()) {
+            filtered_size += temp->NextEntryOffset;
+            number++;
+        }
 
-        if (ProcList->NextEntryOffset == 0) {
+        temp = (PSYSTEM_PROCESS_INFORMATION)((PUCHAR)temp + temp->NextEntryOffset);
+    }
+
+    auto newarray = malloc(filtered_size);
+
+    temp = ProcList;
+    auto temp_newarray = newarray;
+    while (temp) {
+        if (temp->NextEntryOffset == 0 || number == 0) {
             break;
         }
 
-        if (std::find(filter.begin(), filter.end(), ProcList->ProcessId) != filter.end()) {
-            auto full_size = sizeof(SYSTEM_PROCESS_INFORMATION) + (ProcList->NumberOfThreads * sizeof(SYSTEM_THREAD));
-            auto p = malloc(full_size);
-
-            memcpy(p, ProcList, full_size);
-            new_proc_list.push_back((SYSTEM_PROCESS_INFORMATION*)p);
+        if (std::find(filter.begin(), filter.end(), (uint64_t)temp->ProcessId) != filter.end()) {
+            memcpy(temp_newarray, temp, temp->NextEntryOffset);
+            temp_newarray = (PVOID)((uintptr_t)temp_newarray + temp->NextEntryOffset);
+            number--;
         }
 
-        ProcList = (PSYSTEM_PROCESS_INFORMATION)((PUCHAR)ProcList + ProcList->NextEntryOffset);
+        temp = (SYSTEM_PROCESS_INFORMATION*)((uintptr_t)temp + temp->NextEntryOffset);
     }
 
-    //  PSYSTEM_PROCESS_INFORMATION newprocinfo = new SYSTEM_PROCESS_INFORMATION[new_proc_list.size()]; compiler doesn't like this and i dont understand why
-
-    auto newarray = malloc(new_proc_list.capacity());
-
-    auto temp = newarray;
-
-    for (auto i = 0; i < new_proc_list.size(); i++) {
-
-        auto cur = new_proc_list[i];
-
-        auto full_size = sizeof(SYSTEM_PROCESS_INFORMATION) + (cur->NumberOfThreads * sizeof(SYSTEM_THREAD));
-
-        if (i + 1 < new_proc_list.size()) {
-            auto nextElement = new_proc_list[i + 1];
-            auto nextoffset = sizeof(SYSTEM_PROCESS_INFORMATION) + (nextElement->NumberOfThreads * sizeof(SYSTEM_THREAD));
-            cur->NextEntryOffset = nextoffset;
-        }
-        memcpy(temp, cur, full_size);
-
-        temp = (void*)((uintptr_t)temp + full_size);
-    }
-
-    kace_proc_len = new_proc_list.capacity();
+    kace_proc_len = filtered_size;
 
     return (SYSTEM_PROCESS_INFORMATION*)newarray;
 }
@@ -383,6 +367,7 @@ void Environment::InitializeProcesses()
 
     std::vector<int> TargetIDs;
     TargetIDs.emplace_back(0);
+    TargetIDs.emplace_back(4);
 
     kace_processes = FilterProcesses((SYSTEM_PROCESS_INFORMATION*)module_data, TargetIDs);
 }
