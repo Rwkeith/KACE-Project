@@ -107,20 +107,128 @@ void h_DeAllocPool(uintptr_t ptr) {
 
 _ETHREAD* h_KeGetCurrentThread() { return (_ETHREAD*)__readgsqword(0x188); }
 
-// Note: we have to fix the length to match ours
+void FilterModuleInformation(uint32_t SystemInformationClass, uintptr_t SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength) {
+
+      if (!Environment::kace_proc_modules) {
+        Environment::InitKaceProcModuleList();
+    }
+
+    if (SystemInformationLength < Environment::kace_proc_modules_len)
+        DebugBreak();
+
+    memcpy((PVOID)SystemInformation, Environment::kace_proc_modules, Environment::kace_proc_modules_len);
+
+    auto ptr = (char*)SystemInformation;
+    RTL_PROCESS_MODULES* loadedmodules = (RTL_PROCESS_MODULES*)(SystemInformation);
+    for (int i = 0; i < loadedmodules->NumberOfModules; i++) {
+        char* modulename = (char*)loadedmodules->Modules[i].FullPathName;
+        while (strstr(modulename, "\\"))
+            modulename++;
+
+        auto mapped_module = PEFile::FindModule(modulename);
+
+        if (mapped_module) {
+            Logger::Log("\tPatching %s base from %llx to %llx\n", modulename, (PVOID)loadedmodules->Modules[i].ImageBase,
+                (PVOID)mapped_module->GetMappedImageBase());
+            loadedmodules->Modules[i].ImageBase = mapped_module->GetMappedImageBase();
+        } else { //We're gonna pass the real module to the driver
+            //loadedmodules->Modules[i].ImageBase = 0;
+            //loadedmodules->Modules[i].LoadCount = 0;
+        }
+    }
+
+    Logger::Log("\tBase is : %llx\n", *(uint64_t*)(ptr + 0x18));
+}
+
+void FilterModuleInformationx4D(uint32_t SystemInformationClass, uintptr_t SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength) {
+    *ReturnLength = Environment::kace_modules_len;
+    if (!SystemInformationLength && *(uint64_t*)SystemInformationLength != 0) {
+        if (*(uint64_t*)SystemInformationLength != Environment::kace_modules_len)
+            DebugBreak(); // AC being weird >.>
+
+        memcpy((PVOID)SystemInformation, Environment::kace_modules, Environment::kace_modules_len);
+
+        _SYSTEM_MODULE_EX* pMods = (_SYSTEM_MODULE_EX*)(SystemInformation); // _SYSTEM_MODULE_EX is the same size as _RTL_PROCESS_MODULE_INFORMATION_EX
+        ulong SizeRead = 0;
+        ulong NumModules = 0;
+
+        while ((SizeRead + sizeof(_SYSTEM_MODULE_EX)) <= *ReturnLength) {
+
+            char* modulename = (char*)pMods->FullDllName;
+            while (strstr(modulename, "\\"))
+                modulename++;
+
+            auto mapped_module = PEFile::FindModule(modulename);
+            if (mapped_module) {
+                Logger::Log("\tPatching %s base from %llx to %llx\n", modulename, pMods->ImageBase, mapped_module->GetMappedImageBase());
+                pMods->ImageBase = (PVOID)mapped_module->GetMappedImageBase();
+            }
+            NumModules++;
+            pMods++;
+            SizeRead += sizeof(_SYSTEM_MODULE_EX);
+        }
+    }
+}
+
+NTSTATUS FilterSystemProcessInformation(uint32_t SystemInformationClass, uintptr_t SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength) {
+    
+    if (SystemInformationLength < Environment::kace_proc_len)
+        DebugBreak(); // AC being weird >.>
+
+    memcpy((void*)SystemInformation, Environment::kace_processes, Environment::kace_proc_len);
+
+    return STATUS_SUCCESS;
+    
+}
+
+NTSTATUS Filter0x5a(uint32_t SystemInformationClass, uintptr_t SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength) {
+    SYSTEM_BOOT_ENVIRONMENT_INFORMATION* pBootInfo = (SYSTEM_BOOT_ENVIRONMENT_INFORMATION*)SystemInformation;
+    Logger::Log("\tBoot info buffer : %llx\n", (void*)pBootInfo);
+
+    return STATUS_SUCCESS;
+}
+
+
+
+    // Note: we have to fix the length to match ours
 NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength) {
     auto x = STATUS_SUCCESS;
 
-    // don't need to perform a real ntquery if we already have these results made
-    if ((SystemInformationClass == 0x4D && !Environment::kace_modules) || (SystemInformationClass == 0xB && !Environment::kace_proc_modules)) {
-        x = NtQuerySystemInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
-        Logger::Log("\tClass %08x status : %08x\n", SystemInformationClass, x);
+    if (SystemInformationLength) {
+        switch (SystemInformationClass) {
+
+        case 0xB: //SystemModuleInformation
+            FilterModuleInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
+            break;
+
+        case 0x4D: //SystemModuleInformation
+            FilterModuleInformationx4D(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
+            break;
+        case 0x5a:
+            Filter0x5a(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
+            break;
+        case 0x5:
+            FilterSystemProcessInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
+            break;
+        default:
+            break;
+        }
+        return x;
     }
+
+    x = NtQuerySystemInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
+    Logger::Log("\tClass %08x status : %08x\n", SystemInformationClass, x);
+
 
     // length check case
     if (x == 0xc0000004) {
-        if (SystemInformationClass == 0x4D)
-            *ReturnLength = Environment::kace_modules_len;
+        if (SystemInformationClass == 0x4D) {
+            if (Environment::kace_modules) {
+                *ReturnLength = Environment::kace_modules_len;
+            } else {
+                DebugBreak(); //should never happen
+            }
+        }
         else if (SystemInformationClass == 0xB) {
             if (Environment::kace_proc_modules) {
                 *ReturnLength = Environment::kace_proc_modules_len;
@@ -128,81 +236,22 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
                 Environment::InitKaceProcModuleList();
                 *ReturnLength = Environment::kace_proc_modules_len;
             }
+        } else if (SystemInformationClass == 0x5) {
+            if (Environment::kace_processes) {
+                *ReturnLength = Environment::kace_proc_len;
+            } else {
+                Environment::InitializeProcesses();
+                *ReturnLength = Environment::kace_proc_len;
+            }
         } else {
             DebugBreak(); // make other module list types.
         }
         return x;
     }
 
-    if (SystemInformationLength && x == 0) {
-        Logger::Log("\tClass %08x success\n", SystemInformationClass);
-        // SystemModuleInformation
-        if (SystemInformationClass == 0xB) { 
-            if (!Environment::kace_proc_modules) {
-                Environment::InitKaceProcModuleList();
-            }
 
-            if (SystemInformationLength < Environment::kace_proc_modules_len)
-                DebugBreak();
 
-            memcpy((PVOID)SystemInformation, Environment::kace_proc_modules, Environment::kace_proc_modules_len);
-
-            auto ptr = (char*)SystemInformation;
-            RTL_PROCESS_MODULES* loadedmodules = (RTL_PROCESS_MODULES*)(SystemInformation);
-            for (int i = 0; i < loadedmodules->NumberOfModules; i++) {
-                char* modulename = (char*)loadedmodules->Modules[i].FullPathName;
-                while (strstr(modulename, "\\"))
-                    modulename++;
-
-                auto mapped_module = PEFile::FindModule(modulename);
-
-                if (mapped_module) {
-                    Logger::Log("\tPatching %s base from %llx to %llx\n", modulename, (PVOID)loadedmodules->Modules[i].ImageBase,
-                        (PVOID)mapped_module->GetMappedImageBase());
-                    loadedmodules->Modules[i].ImageBase = mapped_module->GetMappedImageBase();
-                } else { //We're gonna pass the real module to the driver
-                    //loadedmodules->Modules[i].ImageBase = 0;
-                    //loadedmodules->Modules[i].LoadCount = 0;
-                }
-            }
-
-            Logger::Log("\tBase is : %llx\n", *(uint64_t*)(ptr + 0x18));
-
-        } else if (SystemInformationClass == 0x4D) { //SystemModuleInformation
-            *ReturnLength = Environment::kace_modules_len;
-            if (!SystemInformationLength && *(uint64_t*)SystemInformationLength != 0) {
-                if (*(uint64_t*)SystemInformationLength != Environment::kace_modules_len)
-                    DebugBreak(); // AC being weird >.>
-
-                memcpy((PVOID)SystemInformation, Environment::kace_modules, Environment::kace_modules_len);
-
-                _SYSTEM_MODULE_EX* pMods
-                    = (_SYSTEM_MODULE_EX*)(SystemInformation); // _SYSTEM_MODULE_EX is the same size as _RTL_PROCESS_MODULE_INFORMATION_EX
-                ulong SizeRead = 0;
-                ulong NumModules = 0;
-
-                while ((SizeRead + sizeof(_SYSTEM_MODULE_EX)) <= *ReturnLength) {
-
-                    char* modulename = (char*)pMods->FullDllName;
-                    while (strstr(modulename, "\\"))
-                        modulename++;
-
-                    auto mapped_module = PEFile::FindModule(modulename);
-                    if (mapped_module) {
-                        Logger::Log("\tPatching %s base from %llx to %llx\n", modulename, pMods->ImageBase, mapped_module->GetMappedImageBase());
-                        pMods->ImageBase = (PVOID)mapped_module->GetMappedImageBase();
-                    }
-                    NumModules++;
-                    pMods++;
-                    SizeRead += sizeof(_SYSTEM_MODULE_EX);
-                }
-            }
-        } else if (SystemInformationClass == 0x5a) {
-            SYSTEM_BOOT_ENVIRONMENT_INFORMATION* pBootInfo = (SYSTEM_BOOT_ENVIRONMENT_INFORMATION*)SystemInformation;
-            Logger::Log("\tBoot info buffer : %llx\n", (void*)pBootInfo);
-        }
-        return x;
-    }
+    return x;
 }
 
 uint64_t h_RtlRandomEx(unsigned long* seed) {

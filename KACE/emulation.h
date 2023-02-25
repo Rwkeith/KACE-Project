@@ -50,6 +50,8 @@ namespace VCPU {
         bool Parse(PCONTEXT context);
         bool ReadMSR(PCONTEXT context, ZydisDecodedInstruction* instr);
         bool WriteMSR(PCONTEXT context, ZydisDecodedInstruction* instr);
+        bool ReadPIO(PCONTEXT context, ZydisDecodedInstruction* instr);
+        bool WritePIO(PCONTEXT context, ZydisDecodedInstruction* instr);
         bool EmulatePrivilegedMOV(PCONTEXT context, ZydisDecodedInstruction* instr);
     } // namespace PrivilegedInstruction
 
