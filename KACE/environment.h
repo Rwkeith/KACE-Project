@@ -37,7 +37,7 @@ namespace Environment {
     bool IsEmuFile(std::string system_file);
     void InitKaceProcModuleList();
 
-    SYSTEM_PROCESS_INFORMATION* FilterProcesses(SYSTEM_PROCESS_INFORMATION* ProcessList, std::vector<int>);
+    SYSTEM_PROCESS_INFORMATION* FilterProcesses(SYSTEM_PROCESS_INFORMATION* ProcessList, unsigned int proclist_size, std::vector<int>);
     RTL_PROCESS_MODULES* FilterProcessModules(RTL_PROCESS_MODULES* proc_mod_list, std::vector<std::string> &filter_list, bool use_as_whitelist);
     std::string GetSystemFilePath(std::string system_file, std::string absolute_path = {});
     std::string GetEmuPath(std::string system_file);

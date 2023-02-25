@@ -133,45 +133,60 @@ PRTL_PROCESS_MODULE_INFORMATION_EX Environment::FilterSystemModules(PRTL_PROCESS
     return new_mod_info;
 }
 
-SYSTEM_PROCESS_INFORMATION* Environment::FilterProcesses(SYSTEM_PROCESS_INFORMATION* ProcList, std::vector<int> filter) {
+SYSTEM_PROCESS_INFORMATION* Environment::FilterProcesses(SYSTEM_PROCESS_INFORMATION* ProcList, unsigned int proclist_size,std::vector<int> filter) {
         
     std::vector<PSYSTEM_PROCESS_INFORMATION> new_proc_list;
     int number = 0;
     auto filtered_size = 0;
     auto temp = ProcList;
+    auto proclist_end = (uint64_t)temp + proclist_size;
 
     // Get size
     while (temp) {
-        
+                
+        if (std::find(filter.begin(), filter.end(), (uint64_t)temp->ProcessId) != filter.end()) {
+            if (!temp->NextEntryOffset) {
+                filtered_size += proclist_end - (uint64_t)temp;
+            } else {
+                filtered_size += temp->NextEntryOffset;
+            }
+            number++;
+        }
+
         if (temp->NextEntryOffset == 0 || number == filter.size()) {
             break;
-        }
-        
-        if (std::find(filter.begin(), filter.end(), (uint64_t)temp->ProcessId) != filter.end()) {
-            filtered_size += temp->NextEntryOffset;
-            number++;
         }
 
         temp = (PSYSTEM_PROCESS_INFORMATION)((PUCHAR)temp + temp->NextEntryOffset);
     }
-
+    
     auto newarray = malloc(filtered_size);
 
     temp = ProcList;
     auto temp_newarray = newarray;
+    auto last_entry = temp_newarray;
     while (temp) {
-        if (temp->NextEntryOffset == 0 || number == 0) {
-            break;
-        }
 
         if (std::find(filter.begin(), filter.end(), (uint64_t)temp->ProcessId) != filter.end()) {
-            memcpy(temp_newarray, temp, temp->NextEntryOffset);
+            if (temp->NextEntryOffset) {
+                memcpy(temp_newarray, temp, temp->NextEntryOffset);
+            } else {
+                memcpy(temp_newarray, temp, proclist_end - (uint64_t)temp);
+            }
+            last_entry = temp_newarray;
             temp_newarray = (PVOID)((uintptr_t)temp_newarray + temp->NextEntryOffset);
             number--;
         }
 
+        if (temp->NextEntryOffset == 0 || number == 0) {
+            break;
+        }
+
         temp = (SYSTEM_PROCESS_INFORMATION*)((uintptr_t)temp + temp->NextEntryOffset);
     }
+
+    // Note: last valid entry's NextEntryOffset field will be 0
+    ((SYSTEM_PROCESS_INFORMATION*)(last_entry))->NextEntryOffset = 0;
 
     kace_proc_len = filtered_size;
 
@@ -369,7 +384,7 @@ void Environment::InitializeProcesses()
     TargetIDs.emplace_back(0);
     TargetIDs.emplace_back(4);
 
-    kace_processes = FilterProcesses((SYSTEM_PROCESS_INFORMATION*)module_data, TargetIDs);
+    kace_processes = FilterProcesses((SYSTEM_PROCESS_INFORMATION*)module_data, len, TargetIDs);
 }
 
 void Environment::CheckPtr(uint64_t ptr) {
