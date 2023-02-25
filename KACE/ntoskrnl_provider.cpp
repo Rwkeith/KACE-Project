@@ -77,6 +77,11 @@ void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
     //std::string var_name = var_name_0 + std::to_string(counter);
     auto ptr = _aligned_malloc(size, 0x1000);
 
+    if (size == 0x18) {
+        Logger::Log("Report Packet is being sent!\n");
+        DebugBreak();
+    }
+
     if (counter == 1) {
         g_ntoskrnl = ptr;
     }
@@ -213,6 +218,7 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
         default:
             break;
         }
+        Logger::Log("\tClass %08x status : %08x\n", SystemInformationClass, x);
         return x;
     }
 
@@ -1607,10 +1613,23 @@ int h__strnicmp(const char* str1, const char* str2, uint64_t maxCount)
 
 // not case sensitive
 int h__stricmp(const char* str1, const char* str2, uint64_t maxCount) {
-    int res = _stricmp(str1, str2);
+    auto temp1 = str1;
+    auto temp2 = str2;
+    
+    if (auto HVA = MemoryTracker::GetHVA((uintptr_t)str1)) {
+        temp1 = (const char*)HVA;
+    }
+
+    if (auto HVA = MemoryTracker::GetHVA((uintptr_t)str2)) {
+        temp2 = (const char*)HVA;
+    }
+    
+    int res = _stricmp(temp1, temp2);
+    
     if (!res)
         Logger::Log("\033[38;5;46m[Info]\033[0m STRING MATCH \n");
-    Logger::Log("str1: %s str2: %s \n", str1, str2);
+    
+    Logger::Log("str1: %s str2: %s \n", temp1, temp2);
     return res;
 }
 
