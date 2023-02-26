@@ -399,8 +399,18 @@ namespace VCPU {
                 } else {
                     DebugBreak();
                 }
+            } else if (instr->mnemonic == ZYDIS_MNEMONIC_MOVUPS || instr->mnemonic == ZYDIS_MNEMONIC_MOVAPS) {
+                if (instr->operands[0].type == ZYDIS_OPERAND_TYPE_MEMORY
+                    && instr->operands[1].type == ZYDIS_OPERAND_TYPE_REGISTER) { // movups [reg], reg128
+                    InstrEmu::WritePtr::EmulateMOVUPS(context, instr->operands[1].reg.value, addr, instr->operands[0].size, instr);
+                    return SkipToNext(context, instr);
+                }
             } else {
-                Logger::Log("Unhandled Mnemonic.\n");
+                ZydisFormatter formatter;
+                ZydisFormatterInit(&formatter, ZYDIS_FORMATTER_STYLE_INTEL);
+                char buffer[256];
+                ZydisFormatterFormatInstruction(&formatter, instr, buffer, sizeof(buffer), ZYDIS_RUNTIME_ADDRESS_NONE);
+                Logger::Log("Unhandled instruction in write emulation: %s\n", buffer);
                 DebugBreak();
                 return false;
             }
@@ -625,7 +635,7 @@ namespace VCPU {
                 } else {
                     DebugBreak();
                 }
-            } else if (instr->mnemonic == ZYDIS_MNEMONIC_MOVUPS) {
+            } else if (instr->mnemonic == ZYDIS_MNEMONIC_MOVUPS || instr->mnemonic == ZYDIS_MNEMONIC_MOVAPS) {
                 if (instr->operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER
                     && instr->operands[1].type == ZYDIS_OPERAND_TYPE_MEMORY) { // movups reg, [reg]
                     InstrEmu::ReadPtr::EmulateMOVUPS(context, instr->operands[0].reg.value, addr, instr->operands[1].size, instr);
@@ -1063,6 +1073,21 @@ namespace VCPU {
                 auto orig_value = context_lookup[GRegIndex(reg)];
 
                 DebugBreak();
+                return true;
+            }
+
+            // DO NOT TURN ON COMPILER OPTIMIZATIONS, THERE BE DRAGONS
+            bool EmulateMOVUPS(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size, ZydisDecodedInstruction* instr) { // MOVUPS [ADDR], R128 emulation
+                M128A* context_lookup = (M128A*)ctx;
+                auto reg_class = ZydisRegisterGetClass(reg);
+                auto orig_value = context_lookup[XmmRegIndex(reg)];
+
+                if (size == 128) {
+                    *(M128A*)ptr = context_lookup[XmmRegIndex(reg)];
+                } else {
+                    DebugBreak(); // this can happen?
+                }
+
                 return true;
             }
 

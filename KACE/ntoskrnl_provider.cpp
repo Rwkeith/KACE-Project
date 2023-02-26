@@ -84,18 +84,21 @@ void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
 
     if (counter == 1) {
         g_ntoskrnl = ptr;
+        Logger::Log("Tracking g_ntoskrnl, size: %X\n", size);
+        MemoryTracker::TrackVariable((uint64_t)g_ntoskrnl, size, std::string("g_ntoskrnl"));
     }
 
     if (counter == 10) {
         // Will cause some recursive read access issues.  There be Dragons here
         // MemoryTracker::TrackVariable((uintptr_t)g_ntoskrnl, size, std::string("g_ntoskrnl"));
     }
-
-    Logger::Log("Allocated Memory at address: %p\n", ptr);
+    counter++;
+    Logger::Log("Allocated Memory at address: %p of size %X\n", ptr, size);
     return ptr;
 }
 
 void* hM_AllocPool(uint32_t pooltype, size_t size) {
+    Logger::Log("Pool Size: %X\n", size);
     auto ptr = _aligned_malloc(size, 0x1000);
     return ptr;
 }
@@ -1604,10 +1607,21 @@ void h_PsReleaseProcessExitSynchronization(PVOID Process) {
 // is case sensitive
 int h__strnicmp(const char* str1, const char* str2, uint64_t maxCount)
 {
-    int res = _strnicmp(str1, str2, maxCount);
+    auto temp1 = str1;
+    auto temp2 = str2;
+
+    if (auto HVA = MemoryTracker::GetHVA((uintptr_t)str1)) {
+        temp1 = (const char*)HVA;
+    }
+
+    if (auto HVA = MemoryTracker::GetHVA((uintptr_t)str2)) {
+        temp2 = (const char*)HVA;
+    }
+
+    int res = _strnicmp(temp1, temp2, maxCount);
     if (!res)
         Logger::Log("\033[38;5;46m[Info]\033[0m STRING MATCH \n");
-    Logger::Log("str1: %s str2: %s \n", str1, str2);
+    Logger::Log("str1: %s str2: %s \n", temp1, temp2);
     return res;
 }
 
