@@ -385,6 +385,5 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
-/DriverBuddy/readme.txt
-/DriverBuddy/DriverBuddy.vcxproj.filters
-/DriverBuddy/DriverBuddy.vcxproj
+!DriverBuddy/*
+DriverBuddy/x64/*
