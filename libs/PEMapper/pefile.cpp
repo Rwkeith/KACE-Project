@@ -1,8 +1,11 @@
 #include "pefile.h"
 #include <Logger/Logger.h>
 #include <SymParser\symparser.hpp>
+#include <filesystem>
 
 #define IMPORT_MODULE_DIRECTORY "c:\\emu\\driver\\"
+
+namespace fs = std::filesystem;
 
 std::unordered_map<std::string, PEFile*> PEFile::moduleList_namekey;
 std::vector<PEFile*> PEFile::LoadedModuleArray;
@@ -307,6 +310,11 @@ void PEFile::SetPermission() {
 }
 
 PEFile* PEFile::Open(std::string path, std::string name) {
+    if (!fs::exists(path)) {
+        Logger::Log("Path given is not valid: %s\n", path.c_str());
+        DebugBreak();
+    }
+    
     auto size = std::filesystem::file_size(path);
 
     if (size) {

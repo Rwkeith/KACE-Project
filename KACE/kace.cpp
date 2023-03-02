@@ -262,7 +262,7 @@ int main(int argc, char* argv[]) {
     if (argc > 2) {
         load_flag = argv[2];
         if (load_flag == "load_only_emu_mods") {
-            Logger::Log("load_only_emu_mods flag specified, loading only modules from c:\\emu\\ \n");
+            Logger::Log("load_only_emu_mods flag specified, loading only modules from c:\\emu\\driver\\ \n");
             load_only_emu_mods = TRUE;
         }
     }
