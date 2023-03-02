@@ -8,11 +8,10 @@
 #include "handle_manager.h"
 #include "nt_define.h"
 #include <Logger/Logger.h>
-
 #include "environment.h"
-
 #include <fltUserStructures.h>
 #include <SymParser/symparser.hpp>
+#include <intrin.h>
 
 using fnFreeCall = uint64_t(__fastcall*)(...);
 
