@@ -15,3 +15,5 @@ Specify a path for driver you want to emulate.  Optional flag `load_only_emu_mod
 ```
 
 When running in VS Debugger, in Exception Settings disable `0xc000005 Access Violation` else the debugger will break on access violations to variables that are tracked.
+
+Use an up to date Windows 10 Build.  Tested on Build 19044.
