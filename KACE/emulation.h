@@ -89,6 +89,7 @@ namespace VCPU {
 
         namespace WritePtr {
             bool EmulateMOV(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
+            bool EmulateMOV(PCONTEXT ctx, ZyanU64 value, uint64_t ptr, ZydisDecodedInstruction* instr);
             bool EmulateOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
             bool EmulateXOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
             bool EmulateAND(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);

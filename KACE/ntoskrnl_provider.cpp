@@ -74,7 +74,7 @@ void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
     //static void* global_module_entries;
     //std::string var_name_0 = "PoolWithTag";
     //std::string var_name = var_name_0 + std::to_string(counter);
-    auto ptr = _aligned_malloc(size, 0x1000);
+    auto ptr = _aligned_malloc(PAGE_ALIGN(size), 0x1000);
 
     if (size == 0x18) {
         Logger::Log("Report Packet is being sent!\n");
@@ -83,7 +83,7 @@ void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
 
     if (counter == 1) {
         g_ntoskrnl = ptr;
-        Logger::Log("Tracking g_ntoskrnl, size: %X\n", size);
+        Logger::Log("Tracking g_ntoskrnl, size: %X, ptr: %p\n", size, ptr);
         MemoryTracker::TrackVariable((uint64_t)g_ntoskrnl, size, std::string("g_ntoskrnl"));
     }
 
@@ -98,7 +98,7 @@ void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
 
 void* hM_AllocPool(uint32_t pooltype, size_t size) {
     Logger::Log("Pool Size: %X\n", size);
-    auto ptr = _aligned_malloc(size, 0x1000);
+    auto ptr = _aligned_malloc(PAGE_ALIGN(size), 0x1000);
     return ptr;
 }
 
