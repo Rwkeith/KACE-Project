@@ -79,6 +79,7 @@ public:
     static PEFile* FindModule(uintptr_t ptr);
     static PEFile* FindModule(std::string name); //find to which module a ptr belongs to.
     static void SetPermission(); //This will prepare the page access for every loaded executable
+    static bool SetRead(std::string& mod_name, bool enable,  uintptr_t addr);      
 
     std::unordered_map<std::string, SectionData> sections;
 

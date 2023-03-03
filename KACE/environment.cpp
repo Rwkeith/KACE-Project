@@ -16,7 +16,75 @@ static NTSTATUS __NtRoutine(const char* Name, Params&&... params) {
     return fn(std::forward<Params>(params)...);
 }
 
+void Environment::SetMaxContigRead(std::string &mod_name, int max_read) {
+    Environment::max_read_map.insert({ mod_name, max_read });
+    std::unordered_map<int, int>* tid_read_map = new std::unordered_map<int, int>;
+    Environment::current_read_map.insert({ mod_name, tid_read_map});
 
+    Environment::read_check_init = true;
+}
+
+// returns true when a hook, unhook is performed on a section
+bool Environment::CheckCurrentContigRead(std::string &mod_name, uintptr_t read_addr) {
+    auto tid = GetCurrentThreadId();
+    if (!Environment::read_check_init || tid == Environment::kace_tid) {
+        return false;
+    }
+
+    std::unordered_map<int, int>* tid_read_count = Environment::current_read_map.at(mod_name);
+
+    // is any memory currently unhooked for this thread?  re-hook if so
+    if (Environment::unhooked_list.find(tid) != Environment::unhooked_list.end()) {
+        auto unhooked_data = Environment::unhooked_list.at(tid);
+        auto mod_name = get<0>(unhooked_data);
+        auto addr = get<1>(unhooked_data);
+        if (PEFile::SetRead(mod_name, false, addr)) {
+            Environment::unhooked_list.erase(tid);
+            Environment::last_thread_read_map.at(tid) = read_addr;
+            tid_read_count->at(tid) = 0;
+            return false;
+        } else {
+            DebugBreak();
+        }
+    }
+
+    if (Environment::current_read_map.find(mod_name) == Environment::current_read_map.end()) {
+        // not tracking
+        return false;
+    }
+    
+    if (tid_read_count->find(tid) == tid_read_count->end()) {
+        // first time thread has tried to read memory from this module, add it
+        tid_read_count->insert({ tid, 0 });
+    }
+
+    if (Environment::last_thread_read_map.find(tid) == Environment::last_thread_read_map.end()) {
+        Environment::last_thread_read_map.insert({ tid,  0 });
+    }
+
+    auto last_addr = Environment::last_thread_read_map.at(tid);
+
+    if ((last_addr + 1) == read_addr) {
+        tid_read_count->at(tid) += 1;
+    } else {
+        tid_read_count->at(tid) = 0;
+    }
+
+    // update last read addr for current thread
+    Environment::last_thread_read_map.at(tid) = read_addr;
+
+    auto max_read = Environment::max_read_map.at(mod_name);
+    if (tid_read_count->at(tid) == max_read) {
+        Logger::Log("Max contiguous read limit %d hit for %s. Disabling read protection until next module executation\n", max_read, mod_name.c_str());
+        bool enable = true;
+        if (PEFile::SetRead(mod_name, enable, read_addr)) {
+            Environment::unhooked_list.insert({ tid, std::make_tuple(mod_name, read_addr) });
+            return true;
+        }
+    }
+
+    return false;
+}
 
 int Environment::GetModuleCount(PRTL_PROCESS_MODULE_INFORMATION_EX module_list) {
     if (module_list->NextOffset != sizeof(_RTL_PROCESS_MODULE_INFORMATION_EX)) {
