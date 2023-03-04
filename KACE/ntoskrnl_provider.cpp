@@ -71,9 +71,6 @@ void TrampolineThread(ThreadInfo* info) {
 void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
     static int counter = 0;
     static void* g_ntoskrnl;
-    //static void* global_module_entries;
-    //std::string var_name_0 = "PoolWithTag";
-    //std::string var_name = var_name_0 + std::to_string(counter);
     auto ptr = _aligned_malloc(PAGE_ALIGN(size), 0x1000);
 
     if (size == 0x18) {
@@ -87,10 +84,6 @@ void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
         MemoryTracker::TrackVariable((uint64_t)g_ntoskrnl, size, std::string("g_ntoskrnl"));
     }
 
-    if (counter == 10) {
-        // Will cause some recursive read access issues.  There be Dragons here
-        // MemoryTracker::TrackVariable((uintptr_t)g_ntoskrnl, size, std::string("g_ntoskrnl"));
-    }
     counter++;
     Logger::Log("Allocated Memory at address: %p of size %X\n", ptr, size);
     return ptr;
@@ -116,7 +109,7 @@ _ETHREAD* h_KeGetCurrentThread() { return (_ETHREAD*)__readgsqword(0x188); }
 
 void FilterModuleInformation(uint32_t SystemInformationClass, uintptr_t SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength) {
 
-      if (!Environment::kace_proc_modules) {
+    if (!Environment::kace_proc_modules) {
         Environment::InitKaceProcModuleList();
     }
 
@@ -138,9 +131,6 @@ void FilterModuleInformation(uint32_t SystemInformationClass, uintptr_t SystemIn
             Logger::Log("\tPatching %s base from %llx to %llx\n", modulename, (PVOID)loadedmodules->Modules[i].ImageBase,
                 (PVOID)mapped_module->GetMappedImageBase());
             loadedmodules->Modules[i].ImageBase = mapped_module->GetMappedImageBase();
-        } else { //We're gonna pass the real module to the driver
-            //loadedmodules->Modules[i].ImageBase = 0;
-            //loadedmodules->Modules[i].LoadCount = 0;
         }
     }
 
@@ -149,13 +139,13 @@ void FilterModuleInformation(uint32_t SystemInformationClass, uintptr_t SystemIn
 
 void FilterModuleInformationx4D(uint32_t SystemInformationClass, uintptr_t SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength) {
     *ReturnLength = Environment::kace_modules_len;
-    if (!SystemInformationLength && *(uint64_t*)SystemInformationLength != 0) {
+    if (!SystemInformation && *(uint64_t*)SystemInformationLength != 0) {
         if (*(uint64_t*)SystemInformationLength != Environment::kace_modules_len)
             DebugBreak(); // AC being weird >.>
 
         memcpy((PVOID)SystemInformation, Environment::kace_modules, Environment::kace_modules_len);
 
-        _SYSTEM_MODULE_EX* pMods = (_SYSTEM_MODULE_EX*)(SystemInformation); // _SYSTEM_MODULE_EX is the same size as _RTL_PROCESS_MODULE_INFORMATION_EX
+        _SYSTEM_MODULE_EX* pMods = (_SYSTEM_MODULE_EX*)(SystemInformation);
         ulong SizeRead = 0;
         ulong NumModules = 0;
 
@@ -195,9 +185,7 @@ NTSTATUS Filter0x5a(uint32_t SystemInformationClass, uintptr_t SystemInformation
     return STATUS_SUCCESS;
 }
 
-
-
-    // Note: we have to fix the length to match ours
+// we have to fix the length to match ours
 NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength) {
     auto x = STATUS_SUCCESS;
 
@@ -257,8 +245,6 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
         return x;
     }
 
-
-
     return x;
 }
 
@@ -285,7 +271,6 @@ NTSTATUS h_IoCreateDevice(_DRIVER_OBJECT* DriverObject, ULONG DeviceExtensionSiz
     Logger::Log("\tCreated device : %ls\n", DeviceName->Buffer);
 
     MemoryTracker::TrackVariable((uintptr_t)realDevice, sizeof(_DEVICE_OBJECT), "MainModule.CreatedDeviceObject");
-
 
     return 0;
 }

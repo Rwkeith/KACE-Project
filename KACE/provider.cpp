@@ -61,9 +61,6 @@ uintptr_t Provider::FindDataImpl(uintptr_t ptr) {
     if (!pe_file)
         return 0;
 
-    // @fixme: @es3n1n: properly handle these std strings
-    //
-    std::string reserved_str = "";
     auto rva = ptr - pe_file->GetMappedImageBase();
     auto exported_func = pe_file->GetExport(rva);
 
@@ -72,8 +69,7 @@ uintptr_t Provider::FindDataImpl(uintptr_t ptr) {
         if (!sym || !sym->rva) {
             return 0;
         }
-        reserved_str = sym->name;
-        exported_func = reserved_str.c_str();
+        exported_func = sym->name.c_str();
     }
 
     Logger::Log("Getting data @ %s!%s\n", pe_file->name.c_str(), exported_func);
