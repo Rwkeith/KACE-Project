@@ -67,6 +67,7 @@ uintptr_t Provider::FindDataImpl(uintptr_t ptr)
 
 	auto rva = ptr - pe_file->GetMappedImageBase();
 	auto exported_func = pe_file->GetExport(rva);
+	std::string reserved_str = "";
 
 	if (!exported_func)
 	{
@@ -75,7 +76,8 @@ uintptr_t Provider::FindDataImpl(uintptr_t ptr)
 		{
 			return 0;
 		}
-		exported_func = sym->name.c_str();
+		reserved_str = sym->name;
+		exported_func = reserved_str.c_str();
 	}
 
 	Logger::Log("Getting data @ %s!%s\n", pe_file->name.c_str(), exported_func);
