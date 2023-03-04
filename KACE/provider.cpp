@@ -1,9 +1,9 @@
-#include "provider.h"
-
 #include <Logger/Logger.h>
 #include <PEMapper/pefile.h>
 
 #include <SymParser/symparser.hpp>
+
+#include "provider.h"
 
 namespace Provider
 {
