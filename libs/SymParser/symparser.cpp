@@ -159,7 +159,7 @@ namespace symparser {
             std::wstringstream pdbpath;
 
             std::string pdb_name_str = check_and_truncate_path(codeview->pdb_name);
-            
+
             pdbpath << pdb_name_str.c_str() << L"\\";
 
             pdbpath << std::setfill(L'0') << std::setw(8) << std::hex << codeview->guid.dword << std::setw(4) << std::hex << codeview->guid.word[0]
@@ -202,7 +202,7 @@ namespace symparser {
             if (download_stat != S_OK) {
 #ifdef _DEBUG
                 // __debugbreak();
-#endif          
+#endif
                 return {};
             }
 
@@ -228,7 +228,7 @@ namespace symparser {
         const auto codeview = image_find_codeview(image.data());
 
         if (!strstr(codeview->pdb_name, ".pdb"))
-            return  std::vector<sym_t>();
+            return std::vector<sym_t>();
         const auto pdb_path = cache_pdb(codeview);
         if (!pdb_path) {
             // __debugbreak();
@@ -239,8 +239,6 @@ namespace symparser {
             std::vector<sym_t> syms;
             return syms;
         }
-            
-            
 
         auto pdb = util::read_file(*pdb_path);
         auto symbols = parse_symbols(pdb.data(), image.data());
