@@ -45,6 +45,7 @@ namespace VCPU {
     void Initialize();
 
     bool Decode(PCONTEXT context, ZydisDecodedInstruction* instr);
+    void PrintInstr(ZydisDecodedInstruction* instr);
 
     namespace PrivilegedInstruction {
         bool Parse(PCONTEXT context);
