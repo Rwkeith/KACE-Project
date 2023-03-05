@@ -42,6 +42,7 @@ extern "C" void u_iret();
 
 LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 {
+	std::string mod_name = "ntoskrnl.exe";
 	uintptr_t ep = (uintptr_t)e->ExceptionRecord->ExceptionAddress;
 
 	if (e->ExceptionRecord->ExceptionCode == EXCEPTION_FLT_DIVIDE_BY_ZERO)
@@ -88,6 +89,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 				break;
 
 			case READ_VIOLATION:
+				Environment::CheckCurrentContigRead(mod_name, addr_access);
 
 				wasEmulated = VCPU::MemoryRead::Parse(addr_access, e->ContextRecord);
 
@@ -128,6 +130,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 				break;
 		}
 	}
+  
 	return EXCEPTION_CONTINUE_SEARCH;
 }
 
@@ -219,6 +222,9 @@ DWORD FakeDriverEntry(LPVOID)
 	MemoryTracker::TrackVariable((uintptr_t)&FakeSystemProcess, sizeof(FakeSystemProcess), (char*)"PID4.EPROCESS");
 	MemoryTracker::TrackVariable((uintptr_t)&FakeKernelThread, sizeof(FakeKernelThread), (char*)"PID4.ETHREAD");
 
+	std::string mod_name = "ntoskrnl.exe";
+	Environment::SetMaxContigRead(mod_name, 50);
+
 	auto result = DriverEntry(&drvObj, &RegistryPath);
 	Logger::Log("Main Thread Done! Return = %llx\n", result);
 	system("pause");
@@ -302,6 +308,8 @@ int main(int argc, char* argv[])
 	}
 
 	DriverEntry = (proxyCall)(MainModule->GetMappedImageBase() + MainModule->GetEP());
+
+	Environment::kace_tid = GetCurrentThreadId();
 
 	const HANDLE ThreadHandle = CreateThread(nullptr, 4096, FakeDriverEntry, nullptr, 0, nullptr);
 

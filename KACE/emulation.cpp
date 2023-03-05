@@ -70,6 +70,7 @@ namespace VCPU
 		MSRContext::Initialize();
 	}
 
+
 	void PrintInstr(ZydisDecodedInstruction* instr)
 	{
 		ZydisFormatter formatter;
@@ -532,6 +533,7 @@ namespace VCPU
 			}
 			else
 			{
+				Logger::Log("Unhandled instruction in write emulation: %s\n", buffer);
 				PrintInstr(instr);
 				DebugBreak();
 				return false;
@@ -1410,7 +1412,6 @@ namespace VCPU
 
 			bool EmulateMOV(PCONTEXT ctx, ZyanU64 value, uint64_t ptr, ZydisDecodedInstruction* instr)
 			{  // X86-compliant MOV [ADDR], imm emulation
-
 				return true;
 			}
 

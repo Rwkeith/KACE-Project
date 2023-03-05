@@ -2714,7 +2714,7 @@ struct _OBJECT_TYPE_INITIALIZER
 	ULONG					DefaultPagedPoolCharge;						   // 0x28
 	ULONG					DefaultNonPagedPoolCharge;					   // 0x2c
 	VOID (*DumpProcedure)(VOID* arg1, struct _OBJECT_DUMP_CONTROL* arg2);  // 0x30
-	LONG(*OpenProcedure)
+	LONG (*OpenProcedure)
 	(enum _OB_OPEN_REASON arg1, CHAR arg2, struct _EPROCESS* arg3, VOID* arg4, ULONG* arg5, ULONG arg6);  // 0x38
 	VOID (*CloseProcedure)(struct _EPROCESS* arg1, VOID* arg2, ULONGLONG arg3, ULONGLONG arg4);			  // 0x40
 	VOID (*DeleteProcedure)(VOID* arg1);																  // 0x48
@@ -2754,7 +2754,7 @@ struct _OBJECT_TYPE_INITIALIZER
 	 enum _POOL_TYPE			   arg7,
 	 struct _GENERIC_MAPPING*	   arg8,
 	 CHAR						   arg9);  // 0x58
-	LONG(*QueryNameProcedure)
+	LONG (*QueryNameProcedure)
 	(VOID* arg1, UCHAR arg2, struct _OBJECT_NAME_INFORMATION* arg3, ULONG arg4, ULONG* arg5, CHAR arg6);  // 0x60
 	UCHAR (*OkayToCloseProcedure)(struct _EPROCESS* arg1, VOID* arg2, VOID* arg3, CHAR arg4);			  // 0x68
 	ULONG  WaitObjectFlagMask;																			  // 0x70

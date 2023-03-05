@@ -1,6 +1,6 @@
 #pragma once
 #include <windows.h>
-
+#include <tuple>
 #include <unordered_map>
 
 #include "ntoskrnl_struct.h"
@@ -28,16 +28,22 @@ struct ProcessList
 
 namespace Environment
 {
-	inline std::vector<std::string>							   kace_module_whitelist;
-	inline PRTL_PROCESS_MODULE_INFORMATION_EX				   kace_modules;
-	inline unsigned int										   kace_modules_len;
-	inline RTL_PROCESS_MODULES*								   kace_proc_modules = 0;
-	inline unsigned long									   kace_proc_modules_len;
-	inline unsigned long									   kace_proc_len;
-	inline SYSTEM_PROCESS_INFORMATION*						   kace_processes;
-	inline std::string										   ntoskrnl_path;
-	inline std::unordered_map<uintptr_t, LDR_DATA_TABLE_ENTRY> environment_module{};
-	inline PLDR_DATA_TABLE_ENTRY							   PsLoadedModuleList;
+	inline std::vector<std::string>										  kace_module_whitelist;
+	inline PRTL_PROCESS_MODULE_INFORMATION_EX							  kace_modules;
+	inline unsigned int													  kace_modules_len;
+	inline RTL_PROCESS_MODULES*											  kace_proc_modules = 0;
+	inline unsigned long												  kace_proc_modules_len;
+	inline unsigned long												  kace_proc_len;
+	inline SYSTEM_PROCESS_INFORMATION*									  kace_processes;
+	inline std::string													  ntoskrnl_path;
+	inline std::unordered_map<uintptr_t, LDR_DATA_TABLE_ENTRY>			  environment_module{};
+	inline PLDR_DATA_TABLE_ENTRY										  PsLoadedModuleList;
+	inline std::unordered_map<std::string, unsigned int>				  max_read_map{};
+	inline std::unordered_map<std::string, std::unordered_map<int, int>*> current_read_map{};
+	inline std::unordered_map<int, uintptr_t>							  last_thread_read_map{};
+	inline bool															  read_check_init = false;
+	inline unsigned int													  kace_tid = 0;
+	inline std::unordered_map<int, std::tuple<std::string, uintptr_t>>	  unhooked_list{};
 
 	bool IsEmuFile(std::string system_file);
 	void InitKaceProcModuleList();
@@ -58,6 +64,8 @@ namespace Environment
 	void							   InitializeSystemModules(bool load_only_emu_mods);
 	void							   InitializeProcesses();
 	void							   CheckPtr(uint64_t ptr);
+	void							   SetMaxContigRead(std::string& mod_name, int max_read);
+	bool							   CheckCurrentContigRead(std::string& mod_name, uintptr_t read_addr);
 
 	namespace ThreadManager
 	{

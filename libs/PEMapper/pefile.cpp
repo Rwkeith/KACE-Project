@@ -368,6 +368,54 @@ void PEFile::SetPermission()
 	}
 }
 
+// disables, enables access of a section that a given address is located in
+bool PEFile::SetRead(std::string& mod_name, bool enable, uintptr_t addr)
+{
+	DWORD oldProtect = 0;
+	for (int i = 0; i < LoadedModuleArray.size(); i++)
+	{
+		if (LoadedModuleArray[i]->name == mod_name)
+		{
+			auto sections = LoadedModuleArray[i]->sections;
+			auto rva = addr - LoadedModuleArray[i]->GetMappedImageBase();
+			for (auto section = sections.begin(); section != sections.end(); section++)
+			{
+				auto sectionName = section->first;
+				auto sectionData = section->second;
+
+				if ((rva >= sectionData.virtual_address) &&
+					(rva <= (sectionData.virtual_address + sectionData.virtual_size)))
+				{
+					if (enable)
+					{
+						Logger::Log(
+							"Unhooking r/w of %s of %s\n", sectionName.c_str(), LoadedModuleArray[i]->name.c_str());
+						VirtualProtect(LoadedModuleArray[i]->mapped_buffer + sectionData.virtual_address,
+									   sectionData.virtual_size,
+									   PAGE_READWRITE,
+									   &oldProtect);
+						return true;
+					}
+					else
+					{
+						Logger::Log(
+							"Rehooking r/w %s of %s\n", sectionName.c_str(), LoadedModuleArray[i]->name.c_str());
+						VirtualProtect(LoadedModuleArray[i]->mapped_buffer + sectionData.virtual_address,
+									   sectionData.virtual_size,
+									   PAGE_NOACCESS,
+									   &oldProtect);
+						return true;
+						;
+					}
+				}
+			}
+		}
+	}
+	Logger::Log("Unable to locate rva within a section.\n");
+	return false;
+	DebugBreak();
+}
+
 PEFile* PEFile::Open(std::string path, std::string name)
 {
 	if (!fs::exists(path))
