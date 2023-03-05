@@ -533,7 +533,6 @@ namespace VCPU
 			}
 			else
 			{
-				Logger::Log("Unhandled instruction in write emulation: %s\n", buffer);
 				PrintInstr(instr);
 				DebugBreak();
 				return false;
