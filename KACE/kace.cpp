@@ -43,13 +43,10 @@ extern "C" void u_iret();
 LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 {
 	std::string mod_name = "ntoskrnl.exe";
-
-	// exceptionMutex.lock();
 	uintptr_t ep = (uintptr_t)e->ExceptionRecord->ExceptionAddress;
 
 	if (e->ExceptionRecord->ExceptionCode == EXCEPTION_FLT_DIVIDE_BY_ZERO)
 	{
-		// exceptionMutex.unlock();
 		return EXCEPTION_CONTINUE_SEARCH;
 	}
 	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_PRIV_INSTRUCTION)
@@ -60,12 +57,10 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 
 		if (wasEmulated)
 		{
-			// exceptionMutex.unlock();
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else
 		{
-			// exceptionMutex.unlock();
 			Logger::Log("Failed to emulate instruction\n");
 
 			return EXCEPTION_CONTINUE_SEARCH;
@@ -89,27 +84,23 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 					// exceptionMutex.unlock();
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-
-				// exceptionMutex.unlock();
+				DebugBreak();
 				exit(0);
 				break;
 
 			case READ_VIOLATION:
-
 				Environment::CheckCurrentContigRead(mod_name, addr_access);
 
 				wasEmulated = VCPU::MemoryRead::Parse(addr_access, e->ContextRecord);
 
 				if (wasEmulated)
 				{
-					// exceptionMutex.unlock();
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 
 				if (e->ExceptionRecord->ExceptionInformation[1] == e->ExceptionRecord->ExceptionInformation[0] &&
 					e->ExceptionRecord->ExceptionInformation[0] == 0)
 				{
-					// exceptionMutex.unlock();
 					return EXCEPTION_CONTINUE_SEARCH;
 				}
 
@@ -117,14 +108,12 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 				{
 					Logger::Log("\033[38;5;46m[Info]\033[0m Checking for Patchguard (int 20)\n");
 					e->ContextRecord->Rip += 2;
-					// exceptionMutex.unlock();
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				else if (bufferopcode[0] == 0x48 && bufferopcode[1] == 0xCF)
 				{
 					e->ContextRecord->Rip = (uintptr_t)u_iret;
 					Logger::Log("\033[38;5;46m[Info]\033[0m IRET Timing Emulation\n");
-					// exceptionMutex.unlock();
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 
@@ -137,18 +126,11 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 					DebugBreak();
 
 				e->ContextRecord->Rip = rip;
-				/*
-				auto retaddr = *(uint64_t*)e->ContextRecord->Rsp;
-				auto pe = PEFile::FindModule(retaddr);
-				if (pe)
-					Logger::Log("Return address : %s:%llx\n", pe->name.c_str(), retaddr - pe->GetImageBase());
-					*/
-				// exceptionMutex.unlock();
 				return EXCEPTION_CONTINUE_EXECUTION;
 				break;
 		}
 	}
-	//  exceptionMutex.unlock();
+  
 	return EXCEPTION_CONTINUE_SEARCH;
 }
 
@@ -328,6 +310,7 @@ int main(int argc, char* argv[])
 	DriverEntry = (proxyCall)(MainModule->GetMappedImageBase() + MainModule->GetEP());
 
 	Environment::kace_tid = GetCurrentThreadId();
+
 	const HANDLE ThreadHandle = CreateThread(nullptr, 4096, FakeDriverEntry, nullptr, 0, nullptr);
 
 	if (!ThreadHandle)

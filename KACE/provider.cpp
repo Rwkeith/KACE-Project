@@ -65,11 +65,9 @@ uintptr_t Provider::FindDataImpl(uintptr_t ptr)
 	if (!pe_file)
 		return 0;
 
-	// @fixme: @es3n1n: properly handle these std strings
-	//
+	auto rva = ptr - pe_file->GetMappedImageBase();
+	auto exported_func = pe_file->GetExport(rva);
 	std::string reserved_str = "";
-	auto		rva = ptr - pe_file->GetMappedImageBase();
-	auto		exported_func = pe_file->GetExport(rva);
 
 	if (!exported_func)
 	{

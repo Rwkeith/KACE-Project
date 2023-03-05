@@ -322,7 +322,7 @@ std::string Environment::GetSystemFilePath(std::string system_file, std::string 
 	std::string file_path;
 	if (absolute_path.length())
 	{
-		file_path = absolute_path.c_str();	// (const char*)pMods->BaseInfo.FullPathName;
+		file_path = absolute_path.c_str();
 		auto sym_idx = file_path.find("SystemRoot", 0);
 		if (sym_idx != std::string::npos)
 		{
@@ -394,7 +394,7 @@ void Environment::InitKaceProcModuleList()
 	kace_proc_modules = FilterProcessModules((RTL_PROCESS_MODULES*)module_data, kace_module_whitelist, true);
 	kace_proc_modules_len =
 		(kace_proc_modules->NumberOfModules * sizeof(RTL_PROCESS_MODULE_INFORMATION)) + sizeof(uint32_t);
-	// free(module_data);
+	free(module_data);
 }
 
 void Environment::InitializeSystemModules(bool load_only_emu_mods)
@@ -522,7 +522,7 @@ void Environment::InitializeSystemModules(bool load_only_emu_mods)
 		Logger::Log("%s \n", VariableName.c_str());
 		MemoryTracker::TrackVariable((uintptr_t)TrackedLdrEntry, sizeof(LDR_DATA_TABLE_ENTRY), VariableName);
 	}
-	// free(module_data);
+	free(module_data);
 }
 
 void Environment::InitializeProcesses()
