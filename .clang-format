@@ -16,6 +16,7 @@ AllowShortLambdasOnASingleLine: Inline
 AllowShortLoopsOnASingleLine: false
 AlwaysBreakAfterReturnType: None
 AlwaysBreakTemplateDeclarations: Yes
+SortIncludes: false
 BinPackArguments: false
 BinPackParameters: false
 BreakBeforeBraces: Custom

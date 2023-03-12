@@ -16,10 +16,10 @@
 #include "ntoskrnl_provider.h"
 #include "paging_emulation.h"
 #include "provider.h"
-
-// #define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
+#include "driver_buddy.h"
 
 // This will monitor every read/write with a page_guard - SLOW - Better debugging
+// #define MONITOR_ACCESS
 
 using proxyCall = uint64_t(__fastcall*)(...);
 proxyCall DriverEntry = nullptr;
@@ -254,12 +254,19 @@ int main(int argc, char* argv[])
 	init_dirs();
 
 	symparser::download_symbols("c:\\Windows\\System32\\ntdll.dll");
-	// symparser::download_symbols("c:\\Windows\\System32\\ntoskrnl.exe");
 
 	MemoryTracker::Initiate();
 
-	bool		load_only_emu_mods = FALSE;
+	auto		load_only_emu_mods = FALSE;
+	auto		use_buddy = FALSE;
 	std::string load_flag;
+	std::string DriverPath;
+	
+	if (argc > 1)
+		DriverPath = argv[1];
+	else
+		DriverPath = "C:\\emu\\easyanticheat_2.sys";
+
 	if (argc > 2)
 	{
 		load_flag = argv[2];
@@ -267,6 +274,34 @@ int main(int argc, char* argv[])
 		{
 			Logger::Log("load_only_emu_mods flag specified, loading only modules from c:\\emu\\driver\\ \n");
 			load_only_emu_mods = TRUE;
+		}
+	}
+
+	if (argc > 3)
+	{
+		load_flag = argv[3];
+		if (load_flag == "use_buddy")
+		{
+			Logger::Log("use_buddy flag specified, loading DriverBuddy...\n");
+			use_buddy = TRUE;
+			if (DriverBuddy::Init())
+			{
+				Logger::Log("[DriverBuddy] Service started successfully.");
+				if (DriverBuddy::LoadEmulatedDrv(DriverPath))
+				{
+					DriverBuddy::DeInit();
+				}
+				else
+				{
+					Logger::Log("Failed to load %s with DriverBuddy...\n", DriverPath.c_str());
+					return 0;
+				}
+			}
+			else
+			{
+				Logger::Log("Failed to load DriverBuddy...\n");
+				return 0;
+			}
 		}
 	}
 
@@ -284,12 +319,6 @@ int main(int argc, char* argv[])
 	SetConsoleMode(hOut, dwMode);
 
 	Logger::Log("Loading modules\n");
-
-	std::string DriverPath;
-	if (argc > 1)
-		DriverPath = argv[1];
-	else
-		DriverPath = "C:\\emu\\easyanticheat_2.sys";
 
 	auto MainModule = PEFile::Open(DriverPath, "MyDriver");
 	MainModule->ResolveImport();

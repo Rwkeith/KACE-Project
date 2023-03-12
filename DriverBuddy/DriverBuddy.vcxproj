@@ -114,6 +114,7 @@
     <ClCompile Include="main.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="buddy_common.h" />
     <ClInclude Include="ida_defs.h" />
     <ClInclude Include="main.h" />
   </ItemGroup>
