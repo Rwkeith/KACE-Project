@@ -3,6 +3,7 @@
 // #include "utils.h"
 
 SC_HANDLE handle_driverbuddy_svc = nullptr;
+SC_HANDLE handle_emulated_drv_svc = nullptr;
 
 int DriverBuddy::Error(const char* message)
 {
@@ -28,17 +29,17 @@ bool DriverBuddy::Init()
 	//
 	const auto path = std::string(buf) + "\\DriverBuddy.sys";
 
-	// is it already loaded?
-	hDevice = CreateFile(L"\\\\.\\DriverBuddy", GENERIC_WRITE, FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
-	if (hDevice != INVALID_HANDLE_VALUE)
-	{
-		DeInit();
-	}
-	
-	// Create DriverBuddy service
+	// Create / Find DriverBuddy service
 	//
 	handle_driverbuddy_svc = loader::create_service("DriverBuddy", "DriverBuddy", path);
 
+	// is it already running?
+	hDevice = CreateFile(L"\\\\.\\DriverBuddy", GENERIC_WRITE, FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+	if (hDevice != INVALID_HANDLE_VALUE)
+	{
+		DeInit(false);
+	}
+	
 	// Load DriverBuddy.sys
 	//
 	return handle_driverbuddy_svc ? loader::start_service(handle_driverbuddy_svc) : false;
@@ -72,8 +73,14 @@ bool DriverBuddy::LoadEmulatedDrv(std::string& driverPath)
 	{
 		printf("[DriverBuddy] Watching for %s...\n", driverPath.c_str());
 		CloseHandle(hDevice);
-		
+
 		// load BEDaisy now...
+		char buf[MAX_PATH]{};
+		GetCurrentDirectoryA(sizeof(buf), buf);
+		const auto path = std::string(buf) + "\\BEDaisy.sys";
+		handle_emulated_drv_svc = loader::create_service("BEDaisy", "BEDaisy", path);
+
+		handle_emulated_drv_svc ? loader::start_service(handle_emulated_drv_svc) : false;
 		
 		return true;
 	}
@@ -87,7 +94,7 @@ bool DriverBuddy::LoadEmulatedDrv(std::string& driverPath)
 
 	// Unloads DriverBuddy.sys
 //
-bool DriverBuddy::DeInit()
+bool DriverBuddy::DeInit(bool delete_service)
 {
 	SERVICE_STATUS svc_status{};
 
@@ -102,5 +109,10 @@ bool DriverBuddy::DeInit()
 
 	// Delete DriverBuddy service
 	//
-	return success ? loader::delete_service(handle_driverbuddy_svc) : false;
+	if (delete_service)
+	{
+		success ? loader::delete_service(handle_driverbuddy_svc) : false;
+	}
+
+	return success;
 }

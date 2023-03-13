@@ -17,6 +17,6 @@ namespace DriverBuddy
 	inline HANDLE hDevice; 
 	bool Init();
 	bool LoadEmulatedDrv(std::string &driverPath);
-	bool DeInit();
+	bool DeInit(bool delete_flag);
 	int	 Error(const char* message);
 }  // namespace DriverBuddy

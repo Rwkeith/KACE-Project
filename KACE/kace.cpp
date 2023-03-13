@@ -289,7 +289,7 @@ int main(int argc, char* argv[])
 				Logger::Log("[DriverBuddy] Service started successfully.");
 				if (DriverBuddy::LoadEmulatedDrv(DriverPath))
 				{
-					DriverBuddy::DeInit();
+					DriverBuddy::DeInit(true);
 				}
 				else
 				{

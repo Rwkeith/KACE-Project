@@ -1,6 +1,6 @@
+#pragma once
 #include "main.h"
 #include "ida_defs.h"
-
 
 PUNICODE_STRING drvName;
 
@@ -72,16 +72,23 @@ NTSTATUS BuddyDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 void LoadImageNotifyRoutine(PUNICODE_STRING FullImageName, HANDLE ProcessId, PIMAGE_INFO ImageInfo)
 {
-	DbgPrint("[ImageNotify] FullImageName: %wZ\n", FullImageName);
-	
-	/*
-	if (RtlCompareUnicodeString(FullImageName, drvName, FALSE) == 0)
-	{
-		DbgPrint("[ImageNotify] IMAGE MATCH!\n");
+	wchar_t path[260];
+	memset(path, 0, 260);
+	memcpy(path, FullImageName->Buffer, FullImageName->Length);
 
-		// hook Driver Entry and patch to jmp PsTerminateThread()
+	path[FullImageName->Length / sizeof(wchar_t)] = L'\0';
+
+	wchar_t* last_backslash = wcsrchr(path, L'\\');
+
+
+	wchar_t* last_component = last_backslash + 1;
+	size_t	 len = wcslen(last_component);
+
+	if (wcsncmp(last_component, L"BEDaisy.sys", len) == 0)
+	{
+		DbgPrint("[DriverBuddy] IMAGE MATCH! %ws\n", last_component);
+		// DO STUFF
 	}
-	*/
 }
 
 NTSTATUS BuddyCreateClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
@@ -96,6 +103,9 @@ NTSTATUS BuddyCreateClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 void BuddyUnload(_In_ PDRIVER_OBJECT DriverObject)
 {
 	UNREFERENCED_PARAMETER(DriverObject);
+
+	PsRemoveLoadImageNotifyRoutine(LoadImageNotifyRoutine);
+
 	UNICODE_STRING symLink = RTL_CONSTANT_STRING(L"\\??\\DriverBuddy");
 	// delete symbolic link
 	IoDeleteSymbolicLink(&symLink);

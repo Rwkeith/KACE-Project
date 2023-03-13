@@ -1,5 +1,7 @@
 sc create sample type= kernel binPath= C:\Users\Keith\Desktop\git\KACE\x64\Debug\DriverBuddy.sys
 
+sc create BEDaisy type= kernel binPath= C:\BEDaisy.sys
+
 bcdedit /set testsigning on
 
 (reboot)
