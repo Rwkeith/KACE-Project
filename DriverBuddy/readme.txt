@@ -1,153 +1,20 @@
-sc create sample type= kernel binPath= C:\Users\Keith\Desktop\git\KACE\x64\Debug\DriverBuddy.sys
+## Setup
 
-sc create BEDaisy type= kernel binPath= C:\BEDaisy.sys
+Enable test signing and reboot
 
-bcdedit /set testsigning on
+`bcdedit /set testsigning on`
 
-(reboot)
+
+Currently set to load BEDaisy.  Put built DriveryBuddy.sys in the KACE\KACE\ project folder
+
+Put BEDaisy.sys in the system root, C:\ directory
+
+
+
+Dev Helpers:
+`sc create sample type= kernel binPath= C:\<SubPath>\KACE\KACE\Driver.sys`
+
+`sc create BEDaisy type= kernel binPath= C:\BEDaisy.sys`
 
 sc start sample
 sc stop sample
-
-
-VM Result:
-send_pci_device_info()
-sub_14034E34D(0)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-Driver Unload ran!
-
-
-
-Real PC:
-
-Driver Entry ran!
-send_pci_device_info()
-sub_14034E34D(0)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-alternate_pci_get_data(a1, 10, a3, 2)
-alternate_pci_get_data(a1, 0, a3, 2)
-Driver Unload ran!
