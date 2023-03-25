@@ -1,13 +1,8 @@
 EMU/EasyAntiCheat_2.sys.i64
-KACE.sln
-KACE/KACE.vcxproj
-KACE/KACE.vcxproj.filters
-<<<<<<< Updated upstream
 KACE/KACE.vcxproj.user
 KACE/packages/*
 KACE/packages.config
-=======
->>>>>>> Stashed changes
+*.sys
 *.ipch
 *.db-shm
 *.db-wal
