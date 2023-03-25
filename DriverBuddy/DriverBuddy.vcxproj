@@ -120,11 +120,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.c" />
+    <ClCompile Include="util.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="buddy_common.h" />
-    <ClInclude Include="ida_defs.h" />
     <ClInclude Include="main.h" />
+    <ClInclude Include="util.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="readme.txt" />

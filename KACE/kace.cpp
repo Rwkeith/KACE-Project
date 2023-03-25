@@ -289,17 +289,18 @@ int main(int argc, char* argv[])
 				Logger::Log("[DriverBuddy] Service started successfully.");
 				if (DriverBuddy::LoadEmulatedDrv(DriverPath))
 				{
-					DriverBuddy::DeInit(true);
+					Logger::Log("Successfully loaded %s\n", DriverPath.c_str());
+					// DriverBuddy::DeInit(true);
 				}
 				else
 				{
-					Logger::Log("Failed to load %s with DriverBuddy...\n", DriverPath.c_str());
+					Logger::Log("Failed to load %s with DriverBuddy...\n");
 					return 0;
 				}
 			}
 			else
 			{
-				Logger::Log("Failed to load DriverBuddy...\n");
+				Logger::Log("Failed to load DriverBuddy, is DriverBuddy.sys in your ..\\KACE\\ folder?\n");
 				return 0;
 			}
 		}

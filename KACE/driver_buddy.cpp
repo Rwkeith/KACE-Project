@@ -1,5 +1,7 @@
+#include <Logger/Logger.h>
 #include "driver_buddy.h"
 #include "loader.h"
+
 // #include "utils.h"
 
 SC_HANDLE handle_driverbuddy_svc = nullptr;
@@ -72,16 +74,37 @@ bool DriverBuddy::LoadEmulatedDrv(std::string& driverPath)
 	if (success)
 	{
 		printf("[DriverBuddy] Watching for %s...\n", driverPath.c_str());
-		CloseHandle(hDevice);
 
 		// load BEDaisy now...
 		char buf[MAX_PATH]{};
 		GetCurrentDirectoryA(sizeof(buf), buf);
 		const auto path = std::string(buf) + "\\BEDaisy.sys";
-		handle_emulated_drv_svc = loader::create_service("BEDaisy", "BEDaisy", path);
 
+		Logger::Log("[DriverBuddy] Created service for %s\n", driverPath.c_str());
+		handle_emulated_drv_svc = loader::create_service("BEDaisy", "BEDaisy", path);
+		Logger::Log("[DriverBuddy] Starting %s\n", driverPath.c_str());
 		handle_emulated_drv_svc ? loader::start_service(handle_emulated_drv_svc) : false;
 		
+		Logger::Log("[DriverBuddy] Waiting 3 seconds to give time for DriverEntry thread to return...");
+		Sleep(3);
+
+		Logger::Log("[DriverBuddy] Unpatching and unregistering LoadImageNotify routine...\n");
+		success = DeviceIoControl(hDevice,
+								  IOCTL_DRIVER_BUDDY_UNWATCH_UNPATCH_DRIVER,  // control code
+								  nullptr,
+								  0,	 // input buffer and length
+								  nullptr,
+								  0,  // output buffer and length
+								  &returned,
+								  nullptr);
+
+		if (!success)
+		{
+			Error("[DriverBuddy] Failed to unpatch and unregister callback...\n");
+			CloseHandle(hDevice);
+			return false;
+		}
+
 		return true;
 	}
 	else
