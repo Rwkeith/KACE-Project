@@ -35,7 +35,7 @@
       <Filter>driverbuddy</Filter>
     </ClInclude>
     <ClInclude Include="loader.h">
-      <Filter>driverbuddy</Filter>
+      <Filter>loader</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -68,7 +68,7 @@
       <Filter>driverbuddy</Filter>
     </ClCompile>
     <ClCompile Include="loader.cpp">
-      <Filter>driverbuddy</Filter>
+      <Filter>loader</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -104,6 +104,9 @@
     </Filter>
     <Filter Include="driverbuddy">
       <UniqueIdentifier>{f12d29e4-f556-490f-87d1-27c71952a285}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="loader">
+      <UniqueIdentifier>{31c76d97-6662-44fd-9ce0-93f0bc2a9ac5}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

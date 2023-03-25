@@ -1,6 +1,7 @@
 #include <Logger/Logger.h>
 #include <MemoryTracker/memorytracker.h>
 #include <PEMapper/pefile.h>
+
 #include <intrin.h>
 
 #include <SymParser/symparser.hpp>

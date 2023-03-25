@@ -1,18 +1,7 @@
 #pragma once
 #include <Windows.h>
 #include <string>
-
-#define DRIVER_BUDDY_DEVICE 0x8000
-#define IOCTL_DRIVER_BUDDY_WATCH_DRIVER CTL_CODE(DRIVER_BUDDY_DEVICE, 0x800, METHOD_NEITHER, FILE_ANY_ACCESS)
-#define IOCTL_DRIVER_BUDDY_UNWATCH_UNPATCH_DRIVER CTL_CODE(DRIVER_BUDDY_DEVICE, 0x801, METHOD_NEITHER, FILE_ANY_ACCESS)
-
-
-typedef struct DriverInfo DriverInfo;
-
-struct DriverInfo
-{
-	PCWSTR driverName;
-};
+#include <buddy_common.h>
 
 namespace DriverBuddy
 {
