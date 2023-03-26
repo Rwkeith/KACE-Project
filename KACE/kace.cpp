@@ -182,7 +182,7 @@ DWORD FakeDriverEntry(LPVOID)
 	FakeSystemProcess.Protection.Level = 7;
 	FakeSystemProcess.WoW64Process = nullptr;
 	FakeSystemProcess.CreateTime.QuadPart = GetTickCount64();
-	strcpy((char*)FakeSystemProcess.ImageFileName, "C:\\emu\\driver\\ntoskrnl.exe");
+	strcpy((char*)FakeSystemProcess.ImageFileName, "System");	//    +0x5a8 ImageFileName    : [15]  "System"
 
 	FakeCPU.CurrentThread = (_KTHREAD*)&FakeKernelThread;
 	FakeCPU.IdleThread = (_KTHREAD*)&FakeKernelThread;
@@ -247,7 +247,7 @@ int main(int argc, char* argv[])
 {
 	Logger::InitializeLogFile("Log.txt");
 	Logger::Log("Press enter after debugger is attached...");
-	std::getchar();
+	std::cin.get();
 
 	_unlink("C:\\Windows\\vgkbootstatus.dat");
 	AddVectoredExceptionHandler(true, ExceptionHandler);

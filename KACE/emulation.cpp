@@ -87,6 +87,8 @@ namespace VCPU
 		return ZYAN_SUCCESS(status);
 	}
 
+#pragma warning(push)
+#pragma warning(disable : 6011)
 	static uint32_t GRegIndex(ZydisRegister Reg)
 	{
 		PCONTEXT resolver = 0;
@@ -127,6 +129,7 @@ namespace VCPU
 
 		return lookup / 16;	 // 16 bytes, 128 bit regs
 	}
+#pragma warning(pop)
 
 	static uint64_t ReadRegisterValue(PCONTEXT ctx, ZydisRegister reg)
 	{
@@ -241,8 +244,7 @@ namespace VCPU
 			auto reg_to_write = GRegIndex(instr->operands[0].reg.value);
 			auto reg_to_read = GRegIndex(instr->operands[1].reg.value);
 
-			if (instr->operands[0].type != ZYDIS_OPERAND_TYPE_REGISTER ||
-				instr->operands[0].type != ZYDIS_OPERAND_TYPE_REGISTER)
+			if (instr->operands[0].type != ZYDIS_OPERAND_TYPE_REGISTER)
 			{
 				DebugBreak();
 			}
@@ -1069,7 +1071,7 @@ namespace VCPU
 					if (reg == ZYDIS_REGISTER_AH || reg == ZYDIS_REGISTER_BH || reg == ZYDIS_REGISTER_CH ||
 						reg == ZYDIS_REGISTER_DH)
 					{
-						context_lookup[GRegIndex(reg)] = (orig_value & 0xFFFFFFFFFFFF00FF) | (*(uint8_t*)ptr) << 8;
+						context_lookup[GRegIndex(reg)] = (orig_value & 0xFFFFFFFFFFFF00FF) | (uint16_t)(*(uint8_t*)ptr) << 8;
 					}
 					else
 					{  // 16/8bits operation do not overwrite the rest of the register

@@ -126,8 +126,7 @@ void PEFile::ParseExport()
 
 	PIMAGE_EXPORT_DIRECTORY pImageExportDescriptor = makepointer<PIMAGE_EXPORT_DIRECTORY>(
 		mapped_buffer, pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress);
-	if (!pImageExportDescriptor->NumberOfNames || !pImageExportDescriptor->NumberOfNames ||
-		!pImageExportDescriptor->AddressOfFunctions)
+	if (!pImageExportDescriptor->NumberOfNames || !pImageExportDescriptor->AddressOfFunctions)
 		return;
 	PDWORD fAddr = (PDWORD)((LPBYTE)mapped_buffer + pImageExportDescriptor->AddressOfFunctions);
 	PDWORD fNames = (PDWORD)((LPBYTE)mapped_buffer + pImageExportDescriptor->AddressOfNames);
@@ -326,6 +325,12 @@ void PEFile::CreateShadowBuffer()
 	// MEMORY_BASIC_INFORMATION mbi;
 	DWORD oldProtect = 0;
 	shadow_buffer = (unsigned char*)_aligned_malloc(this->GetVirtualSize(), 0x10000);
+	if (!shadow_buffer)
+	{
+		Logger::Log("Unable to allocate memory for shadow buffer! PEFile: %s\n", filename.c_str());
+		return;
+	}
+	
 	memcpy(shadow_buffer, mapped_buffer, this->GetVirtualSize());
 	auto sections = this->sections;
 	for (auto section = sections.begin(); section != sections.end(); section++)

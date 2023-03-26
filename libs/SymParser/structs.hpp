@@ -71,9 +71,12 @@ namespace structs {
         cv_signature signature;
     };
 
+#pragma warning(push)
+#pragma warning(disable : 4200)
     struct cv_pdb70_t : cv_header_t {
         guid_t guid;
         uint32_t age;
         char pdb_name[];
     };
+#pragma warning(pop)
 } // namespace structs

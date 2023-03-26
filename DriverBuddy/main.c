@@ -43,12 +43,13 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 
 NTSTATUS BuddyDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
+	UNREFERENCED_PARAMETER(DeviceObject);
+
 	// get our IO_STACK_LOCATION
 	IO_STACK_LOCATION* stack = IoGetCurrentIrpStackLocation(Irp);
 	auto status = STATUS_SUCCESS;
 	switch (stack->Parameters.DeviceIoControl.IoControlCode)
 	{
-		DbgPrint("[DriverBuddy] DeviceControl called!\n");
 		case IOCTL_DRIVER_BUDDY_WATCH_DRIVER:
 			if (stack->Parameters.DeviceIoControl.InputBufferLength < sizeof(DriverInfo))
 			{
@@ -101,7 +102,7 @@ NTSTATUS BuddyDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 void LoadImageNotifyRoutine(PUNICODE_STRING FullImageName, HANDLE ProcessId, PIMAGE_INFO ImageInfo)
 {
-	
+	UNREFERENCED_PARAMETER(ProcessId);
 	wchar_t path[260];
 	memset(path, 0, 260);
 	memcpy(path, FullImageName->Buffer, FullImageName->Length);
@@ -118,8 +119,8 @@ void LoadImageNotifyRoutine(PUNICODE_STRING FullImageName, HANDLE ProcessId, PIM
 	{
 		DbgPrint("[DriverBuddy] IMAGE MATCH! %ws\n", last_component);
 		// Patch DriverEntry to return 0
-		int *image_ep_offset = ((UINT64)ImageInfo->ImageBase + EP_OFFSET);
-		UINT64 image_ep = (UINT64) ImageInfo->ImageBase + *image_ep_offset;
+		int *image_ep_offset = (int*)((UINT64)ImageInfo->ImageBase + EP_OFFSET);
+		image_ep = (char*)((UINT64) ImageInfo->ImageBase + (UINT64)*image_ep_offset);
 
 		if (*(char*)image_ep != '\xE9')
 		{
@@ -156,7 +157,7 @@ void LoadImageNotifyRoutine(PUNICODE_STRING FullImageName, HANDLE ProcessId, PIM
 
 
 
-NTSTATUS BuddyCreateClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS BuddyCreateClose(_In_ PDEVICE_OBJECT DeviceObject, _In_ PIRP Irp)
 {
 	UNREFERENCED_PARAMETER(DeviceObject);
 	Irp->IoStatus.Status = STATUS_SUCCESS;
@@ -179,8 +180,3 @@ void BuddyUnload(_In_ PDRIVER_OBJECT DriverObject)
 	DbgPrint("DriverBuddy unloaded!\n");
 }
 
-void DummyDrvEntry()
-{
-	DbgPrint("DummDrvEntry was ran successfully!!!!!!\n");
-	return STATUS_SUCCESS;
-}

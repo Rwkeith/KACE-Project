@@ -2795,6 +2795,8 @@ typedef struct _SYSTEM_THREAD
 
 } SYSTEM_THREAD, *PSYSTEM_THREAD;
 
+#pragma warning(push)
+#pragma warning(disable : 4200)
 typedef struct _SYSTEM_PROCESS_INFORMATION
 {
 	ULONG		   NextEntryOffset;
@@ -2815,6 +2817,7 @@ typedef struct _SYSTEM_PROCESS_INFORMATION
 	SYSTEM_THREAD  Threads[0];
 
 } SYSTEM_PROCESS_INFORMATION, *PSYSTEM_PROCESS_INFORMATION;
+#pragma warning(pop)
 
 struct _OBJECT_TYPE
 {

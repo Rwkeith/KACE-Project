@@ -14,7 +14,7 @@ struct ImportData
 {
 	std::string library;
 	std::string name;
-	uint64_t	rva;
+	uint64_t	rva = 0;
 };
 
 struct SectionData

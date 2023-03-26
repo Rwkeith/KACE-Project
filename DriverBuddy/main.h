@@ -11,7 +11,6 @@ void			  BuddyUnload(_In_ PDRIVER_OBJECT DriverObject);
 NTSTATUS		  BuddyCreateClose(_In_ PDEVICE_OBJECT DeviceObject, _In_ PIRP Irp);
 NTSTATUS		  BuddyDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
-void DummyDrvEntry();
 void LoadImageNotifyRoutine(PUNICODE_STRING, HANDLE, PIMAGE_INFO);
 EXTERN_C_END
 

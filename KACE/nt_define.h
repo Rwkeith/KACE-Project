@@ -27,6 +27,9 @@ Notes:
 	find where to insert new error codes
 --*/
 
+#pragma warning(push)
+#pragma warning(disable : 4005)
+
 #ifndef _NTSTATUS_
 #define _NTSTATUS_
 
@@ -23594,3 +23597,5 @@ __inline NTSTATUS_FROM_WIN32(long x)
 
 #endif	// WIN32_NO_STATUS // winnt
 #endif	// _NTSTATUS_
+
+#pragma warning(pop)

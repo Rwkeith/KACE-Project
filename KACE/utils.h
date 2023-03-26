@@ -1,6 +1,7 @@
 #pragma once
 #include <locale>
 #include <string>
+#include <Logger/Logger.h>
 
 FORCEINLINE std::wstring UtilWidestringFromString(const std::string& str)
 {
@@ -27,6 +28,13 @@ FORCEINLINE VOID RtlInitUnicodeString(_Out_ PUNICODE_STRING DestinationString, _
 		DestinationString->MaximumLength = DestinationString->Length = 0;
 
 	DestinationString->Buffer = (PWCH)malloc(DestinationString->MaximumLength);
+
+	if (!DestinationString->Buffer)
+	{
+		Logger::Log("Error, unable to allocate memory for DestinationString->Buffer in RtlInitUnicodeString...\n");
+		return;
+	}
+
 	memset(DestinationString->Buffer, 0, DestinationString->MaximumLength);
 	memcpy(DestinationString->Buffer, SourceString, DestinationString->MaximumLength);
 }
