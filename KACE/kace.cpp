@@ -1,6 +1,8 @@
 #include <Logger/Logger.h>
 #include <MemoryTracker/memorytracker.h>
 #include <PEMapper/pefile.h>
+#include <PTEdit/PTEditorLoader.h>
+#include <PTEdit/ptedit_header.h>
 
 #include <intrin.h>
 
@@ -278,41 +280,70 @@ int main(int argc, char* argv[])
 		}
 	}
 
+	PRTL_PROCESS_MODULE_INFORMATION_EX mod_info;
+
 	if (argc > 3)
 	{
+		//  Working on PTE Manipulation for now...
 		load_flag = argv[3];
 		if (load_flag == "use_buddy")
 		{
 			Logger::Log("use_buddy flag specified, loading DriverBuddy...\n");
 			use_buddy = TRUE;
-			if (DriverBuddy::Init())
+			if (!DriverBuddy::Init(DriverPath))
 			{
-				Logger::Log("[DriverBuddy] Service started successfully.");
-				if (DriverBuddy::LoadEmulatedDrv(DriverPath))
-				{
-					Logger::Log("Successfully loaded %s\n", DriverPath.c_str());
-					// DriverBuddy::DeInit(true);
-				}
-				else
-				{
-					Logger::Log("Failed to load %s with DriverBuddy...\n");
-					return 0;
-				}
-			}
-			else
-			{
-				Logger::Log("Failed to load DriverBuddy, is DriverBuddy.sys in your ..\\KACE\\ folder?\n");
 				return 0;
 			}
 		}
+
+		if (ptedit_load(true))
+		{
+			Logger::Log("Failed to load PTEdit for page table manipulation...\n");
+			return 0;
+		}
+
+		if (ptedit_init())
+		{
+			Logger::Log("Failed to open PTEdit device\n");
+			return 0;
+		}
+
+		std::string mod_name = "BEDaisy.sys";
+
+		mod_info = Environment::GetSystemModuleInfo(mod_name);
+		
+		// set module address range from kernel to user
+		ptedit_entry_t vm = {};
+		for (int i = 0; i < mod_info->BaseInfo.ImageSize; i += 0x1000)
+		{
+			vm = ptedit_resolve((void*)((uint64_t)mod_info->BaseInfo.ImageBase + i), 0);
+			vm.pml4 |= (1ull << 2);
+			vm.pgd |= (1ull << 2);
+			vm.pdpt |= (1ull << 2);
+			vm.pd |= (1ull << 2);
+			vm.pte |= (1ull << 2);
+			vm.valid |= PTEDIT_VALID_MASK_PTE;
+			vm.valid |= PTEDIT_VALID_MASK_PGD;
+			vm.valid |= PTEDIT_VALID_MASK_P4D;
+			vm.valid |= PTEDIT_VALID_MASK_PMD;
+			vm.valid |= PTEDIT_VALID_MASK_PUD;
+			ptedit_update((void*)((uint64_t)mod_info->BaseInfo.ImageBase + i), 0, &vm);
+		}
+		
+		Logger::Log("%s now set to usermode memory...\n", mod_name.c_str());
+		char test = *(char*)mod_info->BaseInfo.ImageBase;
+		
 	}
 
+	/*
 	Environment::InitializeSystemModules(load_only_emu_mods);
+	
+	
 	ntoskrnl_provider::Initialize();
 
 	VCPU::Initialize();
 	PagingEmulation::SetupCR3();
-
+	*/
 	DWORD dwMode;
 
 	auto hOut = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -322,11 +353,52 @@ int main(int argc, char* argv[])
 
 	Logger::Log("Loading modules\n");
 
-	auto MainModule = PEFile::Open(DriverPath, "MyDriver");
-	MainModule->ResolveImport();
+	std::string ntosk = "ntoskrnl.exe";
+	// auto		ntos_mod = Environment::GetSystemModuleInfo(ntosk);
+	// PEFile::Open((void*)ntos_mod->BaseInfo.ImageBase, "ntoskrnl.exe", ntos_mod->BaseInfo.ImageSize);
+
+
+	std::string fltr = "fltrmgr.sys";
+	// auto		fltr_mod = Environment::GetSystemModuleInfo(fltr);
+	// PEFile::Open((void*)fltr_mod->BaseInfo.ImageBase, "ntoskrnl.exe", fltr_mod->BaseInfo.ImageSize);
+
+
+	auto MainModule = PEFile::Open((void*)mod_info->BaseInfo.ImageBase, "MyDriver", mod_info->BaseInfo.ImageSize);
+	
+	
+	// MainModule->ResolveImport();
 	MainModule->SetExecutable(true);
 
+	// this will create the shadow buffer's and mark the memory of all PEFile objects created as PAGE_NO_ACCESS or PAGE_READ_WRITE
+	// should we create a new class based off of PEFile called KernelRegion?
+	// it needs to create userland mirrors of things
+	// it needs to provide service for the exception handler and work with resolving symbols when available
+	// maybe we can also determine our own symbols for things when they aren't in a PDB (kernel objects)
 	PEFile::SetPermission();
+	
+	FakeDrvEntry PatchedDrvEntry = (FakeDrvEntry)(MainModule->GetEP() + (UINT64)mod_info->BaseInfo.ImageBase);
+
+	// works, but need to pass args.
+	// executes up to nt!__chkstk()
+	PatchedDrvEntry();
+
+	// we need to create the shadowbuffers of everything(asterisk) mapped into kernel
+	// we can also do the absolute minimum (ntoskrnl) and create shadow buffers on demand
+	// we can VirtualAlloc them in usermode, update the pfn's using PTEdit
+
+	Logger::Log("Huzzah!\n");
+
+	//auto MainModule = PEFile::Open(DriverPath, "MyDriver");
+	
+	// We don't need to resolve import's anymore..the driver is now loaded legitly(by us)
+	//MainModule->ResolveImport();
+	
+	// Pretty sure we still need this for emulated driver to go to our exception handler.
+	// Do we need to PAGE_NO_ACCESS the memory that stores the exception table and emulate that?
+	// See the difference between 2 memory dumps before and after this is done
+	//MainModule->SetExecutable(true);
+
+	//PEFile::SetPermission();
 
 	for (int i = 0; i < PEFile::LoadedModuleArray.size(); i++)
 	{

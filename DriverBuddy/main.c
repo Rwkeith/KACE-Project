@@ -6,6 +6,7 @@
 PUNICODE_STRING drvName;
 char			orig_bytes[3];
 char*			image_ep = 0;
+int				smap_enabled = 0;
 
 NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
 {
@@ -85,11 +86,39 @@ NTSTATUS BuddyDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 					_enable();
 					unsigned long ex_code = GetExceptionCode();
 					DbgPrint("[DriverBuddy] Failed to clear WP, exception code: %ul\n", ex_code);
-				}	
+				}
+				DbgPrint("[DriverBuddy] Restored original bytes and unregistered NotifyImageRoutine\n");
 			}
-			DbgPrint("[DriverBuddy] Restored original bytes and unregistered NotifyImageRoutine\n");
+			else
+			{
+				DbgPrint("[DriverBuddy] Nothing to unpatch...\n");
+			}
+			
+			break;
+		case IOCTL_DRIVER_BUDDY_DISABLE_SMAP:
+			__try
+			{
+				set_smap(0);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				unsigned long ex_code = GetExceptionCode();
+				DbgPrint("[DriverBuddy] Failed to dsiable SMAP, exception code: %ul\n", ex_code);
+			}
+			break;
+		case IOCTL_DRIVER_BUDDY_ENABLE_SMAP:
+			__try
+			{
+				set_smap(1);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				unsigned long ex_code = GetExceptionCode();
+				DbgPrint("[DriverBuddy] Failed to enable SMAP, exception code: %ul\n", ex_code);
+			}
 			break;
 		default:
+			DbgPrint("[DriverBuddy] Received unrecognized command...\n");
 			status = STATUS_INVALID_DEVICE_REQUEST;
 			break;
 	}
@@ -138,8 +167,8 @@ void LoadImageNotifyRoutine(PUNICODE_STRING FullImageName, HANDLE ProcessId, PIM
 
 		__try
 		{
+			set_cet(0);
 			ClearWP();
-			DbgPrint("[DriverBuddy] Patching DriverEntry to return 0\n");
 			for (int i = 0; i < 3; i++)
 			{
 				*((char*)image_ep + i) = byte_patch[i];

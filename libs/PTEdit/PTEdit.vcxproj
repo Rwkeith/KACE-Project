@@ -129,10 +129,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\PTEditor\ptedit.c" />
+    <ClCompile Include="PTEditorLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\PTEditor\ptedit.h" />
     <ClInclude Include="..\..\..\PTEditor\ptedit_header.h" />
+    <ClInclude Include="PTEditorLoader.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

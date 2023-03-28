@@ -74,14 +74,18 @@ class PEFile
 	void ParseExport();
 
 	PEFile(std::string filename, std::string name, uintmax_t size);
+	PEFile(void* image_base, std::string name, uintmax_t size);
 
    public:
+	bool isKernelLoaded;
+
 	std::string filename;
 	std::string name;
 
 	static std::vector<PEFile*> LoadedModuleArray;
 
 	static PEFile* Open(std::string path, std::string name);
+	static PEFile* Open(void* image_base, std::string name, int image_size);
 	static PEFile* FindModule(uintptr_t ptr);
 	static PEFile* FindModule(std::string name);  // find to which module a ptr belongs to.
 	static void	   SetPermission();				  // This will prepare the page access for every loaded executable

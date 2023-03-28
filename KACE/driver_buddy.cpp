@@ -14,7 +14,7 @@ int DriverBuddy::Error(const char* message)
 }
 
 // Loads DriverBuddy.sys
-bool DriverBuddy::Init()
+bool DriverBuddy::Init(std::string& driverPath)
 {
 	if (!loader::open_scm())
 	{
@@ -44,7 +44,24 @@ bool DriverBuddy::Init()
 	
 	// Load DriverBuddy.sys
 	//
-	return handle_driverbuddy_svc ? loader::start_service(handle_driverbuddy_svc) : false;
+	handle_driverbuddy_svc ? loader::start_service(handle_driverbuddy_svc) : false;
+
+	if (!handle_driverbuddy_svc)
+	{
+		Logger::Log("Failed to load DriverBuddy, is DriverBuddy.sys in your ..\\KACE\\ folder?\n");
+		return false;
+	}
+
+	Logger::Log("[DriverBuddy] Service started successfully.\n");
+	
+	if (!LoadEmulatedDrv(driverPath))
+	{
+		Logger::Log("Failed to load %s with DriverBuddy...\n", driverPath.c_str());
+		return false;
+	}
+
+	Logger::Log("Successfully loaded %s\n", driverPath.c_str());
+	return true;
 }
 
 bool DriverBuddy::LoadEmulatedDrv(std::string& driverPath)
@@ -52,7 +69,7 @@ bool DriverBuddy::LoadEmulatedDrv(std::string& driverPath)
 	hDevice = CreateFile(L"\\\\.\\DriverBuddy", GENERIC_WRITE, FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
 	if (hDevice == INVALID_HANDLE_VALUE)
 	{
-		Error("[DriverBuddy] Failed to open device");
+		Error("[DriverBuddy] Failed to open device\n");
 		return false;
 	}
 
@@ -102,6 +119,7 @@ bool DriverBuddy::LoadEmulatedDrv(std::string& driverPath)
 		{
 			Error("[DriverBuddy] Failed to unpatch and unregister callback...\n");
 			CloseHandle(hDevice);
+			hDevice = 0;
 			return false;
 		}
 
@@ -111,12 +129,45 @@ bool DriverBuddy::LoadEmulatedDrv(std::string& driverPath)
 	{
 		Error("[DriverBuddy] Failed to load emulated driver.\n");
 		CloseHandle(hDevice);
+		hDevice = 0;
 		return false;
 	}
 }
 
-	// Unloads DriverBuddy.sys
-//
+bool DriverBuddy::ToggleSMAP(bool enable)
+{
+	DWORD returned;
+
+	if (hDevice)
+	{
+		int cmd;
+		if (enable)
+			cmd = IOCTL_DRIVER_BUDDY_ENABLE_SMAP;
+		else
+			cmd = IOCTL_DRIVER_BUDDY_DISABLE_SMAP;
+
+		auto success = DeviceIoControl(hDevice,
+								  cmd,
+								  nullptr,
+								  0,
+								  nullptr,
+								  0,
+								  &returned,
+								  nullptr);
+	
+		if (!success)
+		{
+			Error("[DriverBuddy] Failed to unpatch and unregister callback...\n");
+			CloseHandle(hDevice);
+			hDevice = 0;
+			return false;
+		}
+	}
+
+	return true;
+}
+
+// Unloads DriverBuddy.sys
 bool DriverBuddy::DeInit(bool delete_service)
 {
 	SERVICE_STATUS svc_status{};

@@ -48,6 +48,7 @@ namespace Environment
 	bool IsEmuFile(std::string system_file);
 	void InitKaceProcModuleList();
 
+	PRTL_PROCESS_MODULE_INFORMATION_EX GetSystemModuleInfo(std::string& module);
 	SYSTEM_PROCESS_INFORMATION*		   FilterProcesses(SYSTEM_PROCESS_INFORMATION* ProcessList,
 													   unsigned int				   proclist_size,
 													   std::vector<int>);

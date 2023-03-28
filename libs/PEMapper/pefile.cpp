@@ -1,5 +1,6 @@
 #include "pefile.h"
 
+
 #include <Logger/Logger.h>
 
 #include <SymParser\symparser.hpp>
@@ -149,6 +150,26 @@ PEFile::PEFile(std::string filename, std::string name, uintmax_t size)
 	{
 		mapped_buffer = (unsigned char*)LoadLibraryExA(filename.c_str(), NULL, DONT_RESOLVE_DLL_REFERENCES);
 		Logger::Log("Loaded %s at 0x%p\n", filename.c_str(), mapped_buffer);
+		if (mapped_buffer)
+		{
+			this->isExecutable = false;
+			this->filename = filename;
+			this->name = name;
+
+			ParseHeader();
+			ParseSection();
+			ParseImport();
+			ParseExport();
+		}
+	}
+}
+
+PEFile::PEFile(void* image_base, std::string name, uintmax_t size)
+{
+	if (size)
+	{
+		mapped_buffer = (unsigned char*)image_base;
+		Logger::Log("Using already mapped image %s at 0x%p\n", filename.c_str(), mapped_buffer);
 		if (mapped_buffer)
 		{
 			this->isExecutable = false;
@@ -434,6 +455,35 @@ PEFile* PEFile::Open(std::string path, std::string name)
 	if (size)
 	{
 		auto loadedModule = new PEFile(path, name, size);
+		loadedModule->isExecutable = false;
+		LoadedModuleArray.push_back(loadedModule);
+
+		for (auto& c : name)
+			c = tolower(c);
+
+		moduleList_namekey.insert(std::pair(name, loadedModule));
+
+		return loadedModule;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+PEFile* PEFile::Open(void* image_base, std::string name, int image_size)
+{
+	if (!image_base)
+	{
+		Logger::Log("Image base is 0...\n");
+		DebugBreak();
+	}
+
+	auto size = image_size;
+
+	if (size)
+	{
+		auto loadedModule = new PEFile(image_base, name, size);
 		loadedModule->isExecutable = false;
 		LoadedModuleArray.push_back(loadedModule);
 

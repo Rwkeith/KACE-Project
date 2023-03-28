@@ -126,6 +126,27 @@ int Environment::GetModuleCount(PRTL_PROCESS_MODULE_INFORMATION_EX module_list)
 	return module_count;
 }
 
+PRTL_PROCESS_MODULE_INFORMATION_EX Environment::GetSystemModuleInfo(std::string& module)
+{
+	uint64_t len = 0;
+	PVOID	 module_data = 0;
+	auto	 ret = __NtRoutine("NtQuerySystemInformation", 0x4D, 0, 0, &len);
+	if (ret != 0)
+	{
+		module_data = malloc(len);
+		memset(module_data, 0, len);
+		ret = __NtRoutine("NtQuerySystemInformation", 0x4D, module_data, len, &len);
+	}
+
+	std::vector<std::string> module_list;
+	module_list.push_back(module);
+
+	PRTL_PROCESS_MODULE_INFORMATION_EX mod_info = FilterSystemModules((PRTL_PROCESS_MODULE_INFORMATION_EX)module_data, module_list, true);
+	free(module_data);
+	return mod_info;
+}
+
+
 RTL_PROCESS_MODULES* Environment::FilterProcessModules(RTL_PROCESS_MODULES*		 proc_mod_list,
 													   std::vector<std::string>& filter_list,
 													   bool						 use_as_whitelist)
