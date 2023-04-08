@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <string.h>
-#include "module/pteditor.h"
+#include "pteditor.h"
 #include "ptedit.h"
 #if defined(LINUX)
 #include <sys/ioctl.h>

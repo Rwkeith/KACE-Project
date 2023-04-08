@@ -19,12 +19,12 @@ uintptr_t Provider::FindFuncImpl(uintptr_t ptr)
 {
 	uintptr_t implPtr = 0;
 
-	auto pe_file = PEFile::FindModule(ptr);
+	auto pe_file = PEFile::FindModule(ptr);		// if it's been PEFile::Open'd, it's in the loaded_module_array
 	if (!pe_file)
 		DebugBreak();
 
 	std::string reserved_str = "";
-	auto		rva = ptr - pe_file->GetMappedImageBase();
+	auto		rva = ptr - pe_file->GetMappedImageBase();	// the non-shadow base (aka the base that is known to emulated driver)
 	auto		exported_func = pe_file->GetExport(rva);
 
 	if (!exported_func)

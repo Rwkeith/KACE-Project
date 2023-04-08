@@ -5,7 +5,7 @@
 
 #define ptedit_fnc
 
-#include "module/pteditor.h"
+#include "pteditor.h"
 #include <sys/types.h>
 
 #if defined(WINDOWS)

@@ -95,6 +95,7 @@ NTSTATUS BuddyDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 			}
 			
 			break;
+		// not actually needed
 		case IOCTL_DRIVER_BUDDY_DISABLE_SMAP:
 			__try
 			{

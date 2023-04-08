@@ -15,6 +15,7 @@ void set_cet(int enable)
 	__writecr4(cr4_value);
 }
 
+// this will cause a critical structure corruption BSOD
 void set_smap(int enable)
 {
 	unsigned long long cr4_value = __readcr4();

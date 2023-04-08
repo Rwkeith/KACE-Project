@@ -1,7 +1,8 @@
 #include "pefile.h"
-
-
 #include <Logger/Logger.h>
+
+#include <PTEdit/ptedit_header.h>
+#include <PTEdit/PTEditorLoader.h>
 
 #include <SymParser\symparser.hpp>
 #include <filesystem>
@@ -164,23 +165,97 @@ PEFile::PEFile(std::string filename, std::string name, uintmax_t size)
 	}
 }
 
-PEFile::PEFile(void* image_base, std::string name, uintmax_t size)
+PEFile::PEFile(void* image_base, std::string name, uintmax_t size, bool is_kernel)
 {
+	if (!ptedit_initialized)
+	{
+		if (ptedit_load(true))
+		{
+			Logger::Log("Failed to load PTEdit for page table manipulation...\n");
+			return;
+		}
+
+		if (ptedit_init())
+		{
+			Logger::Log("Failed to open PTEdit device\n");
+			return;
+		}
+		ptedit_initialized = true;
+	}
+	
+	ptedit_entry_t vm = {};
+	if (is_kernel)
+	{
+		// create a usermode buffer
+		mapped_buffer = (unsigned char*)_aligned_malloc(size, 0x10000);
+		if (!mapped_buffer)
+		{
+			Logger::Log("Unable to allocate memory for usermode! PEFile: %s\n", filename.c_str());
+			return;
+		}
+		Logger::Log("Allocated usermode memory for %s at 0x%p\n", filename.c_str(), mapped_buffer);
+		
+		// map the PFN's from the kernel pages to the new usermode pages
+		for (int i = 0; i < size; i += 0x1000)
+		{
+			vm = ptedit_resolve((void*)((uint64_t)image_base + i), 0);
+			ptedit_pmd_t
+			if (vm.pte)
+			{
+				ptedit_pte_set_pfn(mapped_buffer + i, 0, ptedit_cast(vm.pte, ).;
+				// normal pages
+			}
+			else
+			{
+				// large pages
+
+			}
+			/*
+			// This doesn't resolve Large pages
+			size_t pfn = ptedit_pte_get_pfn((void*)((UINT64)image_base + i), 0);
+			if (!pfn)
+			{
+				Logger::Log("Warning, no pfn found within image bound at 0x%p\n", mapped_buffer);
+			}
+			
+			ptedit_pte_set_pfn(mapped_buffer + i, 0, pfn);
+			*/
+		}
+		auto test = (char*)(*mapped_buffer);
+		int test2 = 1 + 1;
+	}
+	else
+	{
+		// make it usermode
+		for (int i = 0; i < size; i += 0x1000)
+		{
+			vm = ptedit_resolve((void*)((uint64_t)image_base + i), 0);
+			vm.pml4 |= (1ull << 2);
+			vm.pgd |= (1ull << 2);
+			vm.pdpt |= (1ull << 2);
+			vm.pd |= (1ull << 2);
+			vm.pte |= (1ull << 2);
+			vm.valid |= PTEDIT_VALID_MASK_PTE;
+			vm.valid |= PTEDIT_VALID_MASK_PGD;
+			vm.valid |= PTEDIT_VALID_MASK_P4D;
+			vm.valid |= PTEDIT_VALID_MASK_PMD;
+			vm.valid |= PTEDIT_VALID_MASK_PUD;
+			ptedit_update((void*)((uint64_t)image_base + i), 0, &vm);
+		}
+		mapped_buffer = (unsigned char*)image_base;
+		Logger::Log("%s now set to usermode memory...\n", name.c_str());
+	}
+
 	if (size)
 	{
-		mapped_buffer = (unsigned char*)image_base;
-		Logger::Log("Using already mapped image %s at 0x%p\n", filename.c_str(), mapped_buffer);
-		if (mapped_buffer)
-		{
-			this->isExecutable = false;
-			this->filename = filename;
-			this->name = name;
+		this->isExecutable = false;
+		this->filename = filename;
+		this->name = name;
 
-			ParseHeader();
-			ParseSection();
-			ParseImport();
-			ParseExport();
-		}
+		ParseHeader();
+		ParseSection();
+		ParseImport();
+		ParseExport();
 	}
 }
 
@@ -471,7 +546,10 @@ PEFile* PEFile::Open(std::string path, std::string name)
 	}
 }
 
-PEFile* PEFile::Open(void* image_base, std::string name, int image_size)
+// on r/w/x, the emulated driver should go to our exception handler.  No need to mark as PAGE_NO_ACCES, PAGE_READ_WRITE
+// however, we still need a shadow buffer.
+// We allocate our shadow buffer, and assign the PFN's of the kernel module, to our usemode PFN's.
+PEFile* PEFile::Open(void* image_base, std::string name, int image_size, bool is_kernel)
 {
 	if (!image_base)
 	{
@@ -483,7 +561,7 @@ PEFile* PEFile::Open(void* image_base, std::string name, int image_size)
 
 	if (size)
 	{
-		auto loadedModule = new PEFile(image_base, name, size);
+		auto loadedModule = new PEFile(image_base, name, size, is_kernel);
 		loadedModule->isExecutable = false;
 		LoadedModuleArray.push_back(loadedModule);
 

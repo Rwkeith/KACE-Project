@@ -1,8 +1,6 @@
 #include <Logger/Logger.h>
 #include <MemoryTracker/memorytracker.h>
 #include <PEMapper/pefile.h>
-#include <PTEdit/PTEditorLoader.h>
-#include <PTEdit/ptedit_header.h>
 
 #include <intrin.h>
 
@@ -284,6 +282,7 @@ int main(int argc, char* argv[])
 
 	if (argc > 3)
 	{
+		
 		//  Working on PTE Manipulation for now...
 		load_flag = argv[3];
 		if (load_flag == "use_buddy")
@@ -295,44 +294,13 @@ int main(int argc, char* argv[])
 				return 0;
 			}
 		}
-
-		if (ptedit_load(true))
-		{
-			Logger::Log("Failed to load PTEdit for page table manipulation...\n");
-			return 0;
-		}
-
-		if (ptedit_init())
-		{
-			Logger::Log("Failed to open PTEdit device\n");
-			return 0;
-		}
+		
 
 		std::string mod_name = "BEDaisy.sys";
 
 		mod_info = Environment::GetSystemModuleInfo(mod_name);
 		
-		// set module address range from kernel to user
-		ptedit_entry_t vm = {};
-		for (int i = 0; i < mod_info->BaseInfo.ImageSize; i += 0x1000)
-		{
-			vm = ptedit_resolve((void*)((uint64_t)mod_info->BaseInfo.ImageBase + i), 0);
-			vm.pml4 |= (1ull << 2);
-			vm.pgd |= (1ull << 2);
-			vm.pdpt |= (1ull << 2);
-			vm.pd |= (1ull << 2);
-			vm.pte |= (1ull << 2);
-			vm.valid |= PTEDIT_VALID_MASK_PTE;
-			vm.valid |= PTEDIT_VALID_MASK_PGD;
-			vm.valid |= PTEDIT_VALID_MASK_P4D;
-			vm.valid |= PTEDIT_VALID_MASK_PMD;
-			vm.valid |= PTEDIT_VALID_MASK_PUD;
-			ptedit_update((void*)((uint64_t)mod_info->BaseInfo.ImageBase + i), 0, &vm);
-		}
-		
-		Logger::Log("%s now set to usermode memory...\n", mod_name.c_str());
-		char test = *(char*)mod_info->BaseInfo.ImageBase;
-		
+		// set module address range from kernel to user		
 	}
 
 	/*
@@ -353,20 +321,26 @@ int main(int argc, char* argv[])
 
 	Logger::Log("Loading modules\n");
 
+	// we need usermode copies of ntoskrnl and fltmgr.sys
 	std::string ntosk = "ntoskrnl.exe";
-	// auto		ntos_mod = Environment::GetSystemModuleInfo(ntosk);
-	// PEFile::Open((void*)ntos_mod->BaseInfo.ImageBase, "ntoskrnl.exe", ntos_mod->BaseInfo.ImageSize);
+	auto		ntos_mod = Environment::GetSystemModuleInfo(ntosk);
+	auto ntos = PEFile::Open((void*)ntos_mod->BaseInfo.ImageBase, "ntoskrnl.exe", ntos_mod->BaseInfo.ImageSize, true);
 
 
 	std::string fltr = "fltrmgr.sys";
-	// auto		fltr_mod = Environment::GetSystemModuleInfo(fltr);
-	// PEFile::Open((void*)fltr_mod->BaseInfo.ImageBase, "ntoskrnl.exe", fltr_mod->BaseInfo.ImageSize);
+	auto		fltr_mod = Environment::GetSystemModuleInfo(fltr);
+	auto fltmgr = PEFile::Open((void*)fltr_mod->BaseInfo.ImageBase, "ntoskrnl.exe", fltr_mod->BaseInfo.ImageSize, true);
 
-
-	auto MainModule = PEFile::Open((void*)mod_info->BaseInfo.ImageBase, "MyDriver", mod_info->BaseInfo.ImageSize);
+	// this works because we set the UserSupervisor bit of the pages of the emulated driver to usermode.
+	auto MainModule = PEFile::Open((void*)mod_info->BaseInfo.ImageBase, "BEDaisy", mod_info->BaseInfo.ImageSize, false);
 	
-	
+	char test = *(char*)mod_info->BaseInfo.ImageBase;
 	// MainModule->ResolveImport();
+
+	// If it's in kernel say it's executable
+	// also if it's the emulated module say it's executable
+	ntos->SetExecutable(true);
+	fltmgr->SetExecutable(true);
 	MainModule->SetExecutable(true);
 
 	// this will create the shadow buffer's and mark the memory of all PEFile objects created as PAGE_NO_ACCESS or PAGE_READ_WRITE
@@ -374,6 +348,7 @@ int main(int argc, char* argv[])
 	// it needs to create userland mirrors of things
 	// it needs to provide service for the exception handler and work with resolving symbols when available
 	// maybe we can also determine our own symbols for things when they aren't in a PDB (kernel objects)
+	
 	PEFile::SetPermission();
 	
 	FakeDrvEntry PatchedDrvEntry = (FakeDrvEntry)(MainModule->GetEP() + (UINT64)mod_info->BaseInfo.ImageBase);

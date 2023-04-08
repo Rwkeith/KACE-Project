@@ -18,22 +18,25 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\PTEditor\ptedit.c">
-      <Filter>main</Filter>
-    </ClCompile>
     <ClCompile Include="PTEditorLoader.cpp">
       <Filter>loader</Filter>
     </ClCompile>
+    <ClCompile Include="ptedit.c">
+      <Filter>main</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\PTEditor\ptedit.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\PTEditor\ptedit_header.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="PTEditorLoader.h">
       <Filter>loader</Filter>
+    </ClInclude>
+    <ClInclude Include="ptedit.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ptedit_header.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pteditor.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
