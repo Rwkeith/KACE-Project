@@ -9,7 +9,7 @@ Continuation of the original KACE project from waryas and friends
 ## What has changed / been added from the original Kace project
 
 ### *Original Method*
-The original Kace project mapped kernel modules into usermode space such as ntos,fltrmgr, win32k, etc.  Then instrumented/emulated driver is then mapped in, where all these mappings are set with `NO_ACCESS` protection so the registered custom exception handler can take control and CPU emulate each instruction with Zydis.  The handler instrument's the Driver and the developer can add handler functions for ntos or other imports used by the instrumented driver.  This version of Kace fully emulated BEDaisy in usermode before moving towards the new approach (some core issues were fixed).
+The original Kace project mapped kernel modules into usermode space such as ntos, fltrmgr, win32k, etc.  Then instrumented/emulated driver is then mapped in, where all these mappings are set with `NO_ACCESS` protection so the registered custom exception handler can take control and CPU emulate each instruction with Zydis.  The handler instrument's the Driver and the developer can add handler functions for ntos or other imports used by the instrumented driver.  This version of Kace fully emulated BEDaisy in usermode before moving towards the new approach (some core issues were fixed).
 
 ### New Method
 
@@ -32,9 +32,9 @@ The original Kace project mapped kernel modules into usermode space such as ntos
 
 ## What needs to be done
 
-* Forward the emulated driver calls to exports from other kernel images and return/filter data according.
+* Forward the emulated driver calls to exports from other kernel images and return/filter data accordingly.
   - In the exception handler, when a kernel import is determined to being called, forward the args and address to DriverBuddy through an ioctl. *Could you do this dynamically? Describe call with struct telling # of args, data types for DriverBuddy*
-* Filter data you don't want the emulate driver to see (e.g. DriverBuddy when NtSysQueryInfo is called)
+* Filter data you don't want the emulated driver to see (e.g. DriverBuddy when NtSysQueryInfo is called)
 * Handle side-channel attacks (timing, kernel vs. usermode thread struct differences)
 
 ## Functional Diagram
