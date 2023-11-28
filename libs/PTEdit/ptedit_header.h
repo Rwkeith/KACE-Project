@@ -514,6 +514,29 @@ typedef struct {
 } ptedit_pmd_large_t;
 #pragma pack(pop)
 
+// ChatGPT told me this shit was correct
+#pragma pack(push, 1)
+typedef struct
+{
+	size_t present : 1;				// Present bit
+	size_t writeable : 1;			// Read/Write bit
+	size_t user_access : 1;			// User/Supervisor bit
+	size_t write_through : 1;		// Page-level Write-Through bit
+	size_t cache_disabled : 1;		// Page-level Cache Disable bit
+	size_t accessed : 1;			// Accessed bit
+	size_t dirty : 1;				// Dirty bit
+	size_t size : 1;				// Page size bit (must be 1 for large pages)
+	size_t global : 1;				// Global bit
+	size_t ignored_2 : 3;			// Ignored bits
+	size_t pat : 1;					// Page Attribute Table bit
+	size_t reserved_1 : 8;			// Reserved bits (must be 0 for large pages)
+	size_t pfn : 31;				// Page Frame Number
+	size_t reserved_2 : 12;			// Reserved bits
+	size_t ignored_1 : 11;			// Ignored bits
+	size_t execution_disabled : 1;	// Execution Disable bit
+} gpt_ptedit_pmd_large_t;
+#pragma pack(pop)
+
 /**
  * Struct to access the fields of the PTE
  */

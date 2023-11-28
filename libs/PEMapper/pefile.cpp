@@ -165,7 +165,12 @@ PEFile::PEFile(std::string filename, std::string name, uintmax_t size)
 	}
 }
 
-PEFile::PEFile(void* image_base, std::string name, uintmax_t size, bool is_kernel)
+SIZE_T RoundUpToLargePageSize(SIZE_T size, SIZE_T largePageSize)
+{
+	return (size + largePageSize - 1) / largePageSize * largePageSize;
+}
+
+PEFile::PEFile(void* image_base, std::string name, uintmax_t size, bool is_kernel, bool make_user_mode, bool mirror)
 {
 	if (!ptedit_initialized)
 	{
@@ -184,47 +189,10 @@ PEFile::PEFile(void* image_base, std::string name, uintmax_t size, bool is_kerne
 	}
 	
 	ptedit_entry_t vm = {};
-	if (is_kernel)
-	{
-		// create a usermode buffer
-		mapped_buffer = (unsigned char*)_aligned_malloc(size, 0x10000);
-		if (!mapped_buffer)
-		{
-			Logger::Log("Unable to allocate memory for usermode! PEFile: %s\n", filename.c_str());
-			return;
-		}
-		Logger::Log("Allocated usermode memory for %s at 0x%p\n", filename.c_str(), mapped_buffer);
-		
-		// map the PFN's from the kernel pages to the new usermode pages
-		for (int i = 0; i < size; i += 0x1000)
-		{
-			vm = ptedit_resolve((void*)((uint64_t)image_base + i), 0);
-			ptedit_pmd_t
-			if (vm.pte)
-			{
-				ptedit_pte_set_pfn(mapped_buffer + i, 0, ptedit_cast(vm.pte, ).;
-				// normal pages
-			}
-			else
-			{
-				// large pages
-
-			}
-			/*
-			// This doesn't resolve Large pages
-			size_t pfn = ptedit_pte_get_pfn((void*)((UINT64)image_base + i), 0);
-			if (!pfn)
-			{
-				Logger::Log("Warning, no pfn found within image bound at 0x%p\n", mapped_buffer);
-			}
-			
-			ptedit_pte_set_pfn(mapped_buffer + i, 0, pfn);
-			*/
-		}
-		auto test = (char*)(*mapped_buffer);
-		int test2 = 1 + 1;
-	}
-	else
+	// the kernel driver is loaded normally (sc start...) and now we want to execute it.
+	// driver entry was patched to return 0, to prevents from executing.  Now, it will be emulated in usermode.
+	// Need to make 
+	if (is_kernel && make_user_mode)
 	{
 		// make it usermode
 		for (int i = 0; i < size; i += 0x1000)
@@ -243,7 +211,81 @@ PEFile::PEFile(void* image_base, std::string name, uintmax_t size, bool is_kerne
 			ptedit_update((void*)((uint64_t)image_base + i), 0, &vm);
 		}
 		mapped_buffer = (unsigned char*)image_base;
-		Logger::Log("%s now set to usermode memory...\n", name.c_str());
+		Logger::Log("%s pfn attributes are now usermode.\n", name.c_str());
+	}
+
+	if (is_kernel && mirror)
+	{
+		SIZE_T largePageSize = GetLargePageMinimum();
+		SIZE_T calc_size = RoundUpToLargePageSize(size, largePageSize);
+
+		// first page a larger page?  may need to handle case of mix of large/small pages.  currently treats entire buffer as one or the other.
+		vm = ptedit_resolve((void*)((uint64_t)image_base), 0);
+		if (vm.pmd & PTEDIT_PAGE_BIT_PSE)
+		{
+			mapped_buffer = (unsigned char*)VirtualAlloc(NULL, calc_size, MEM_RESERVE | MEM_LARGE_PAGES, PAGE_READWRITE);
+		}
+		else
+		{
+			mapped_buffer = (unsigned char*)VirtualAlloc(NULL, calc_size, MEM_RESERVE, PAGE_READWRITE);
+		}
+		
+		if (mapped_buffer == NULL)
+		{
+			DWORD dwError = GetLastError();
+			Logger::Log("Unable to allocate memory for usermode! PEFile: %s\n", name.c_str());
+			Logger::Log("VirtualAlloc failed with error code %d\n", dwError);
+			return;
+		}
+		
+		Logger::Log("Allocated usermode memory for %s at 0x%p\n", name.c_str(), mapped_buffer);
+	
+
+		// map the PFN's from the kernel pages to the new usermode pages
+		// this way, the usermode pages now reference the actual used host data on the machine
+		
+		int page_size = 0x1000;
+		for (int i = 0; i < size; i += page_size)
+		{
+			vm = ptedit_resolve((void*)((uint64_t)image_base + i), 0);
+			
+			// large page?
+			if (vm.pmd & PTEDIT_PAGE_BIT_PSE)
+			{
+				page_size = 0x200000;
+				ptedit_entry_t dest_vm = ptedit_resolve((void*)((uint64_t)mapped_buffer + i), 0);
+				
+				// if it's a large page, the deepest level entry is a pd
+				size_t pde = vm.pd;
+				size_t pde_pfn = (pde & 0xFFFFFFFFFF000) >> 12;
+				auto   dest_vm_pd = (gpt_ptedit_pmd_large_t*)&dest_vm.pd;
+				// update dest pfn
+				
+				*(size_t*)dest_vm_pd |= pde_pfn << 12;
+
+				// dest_vm_pd->pfn = pde_pfn;
+				dest_vm_pd->size = 1;
+				dest_vm_pd->present = 1;
+				ptedit_update((void*)((uint64_t)mapped_buffer + i), 0, &dest_vm);
+
+				// assumes we have a pte?  we don't if we are a large page
+				// ptedit_pte_set_pfn(mapped_buffer + i, 0, ptedit_cast(vm.pd, ptedit_pte_t));
+			}
+			else
+			{
+				page_size = 0x1000;
+				// regular page
+				size_t pfn = ptedit_pte_get_pfn((void*)((UINT64)image_base + i), 0);
+				if (!pfn)
+				{
+					Logger::Log("Warning, no pfn found within image bound at 0x%p\n", mapped_buffer);
+				}
+				ptedit_pte_set_pfn(mapped_buffer + i, 0, pfn);
+			}
+			
+		}
+		auto test = (char*)(*mapped_buffer);
+		int test2 = 1 + 1;
 	}
 
 	if (size)
@@ -549,7 +591,7 @@ PEFile* PEFile::Open(std::string path, std::string name)
 // on r/w/x, the emulated driver should go to our exception handler.  No need to mark as PAGE_NO_ACCES, PAGE_READ_WRITE
 // however, we still need a shadow buffer.
 // We allocate our shadow buffer, and assign the PFN's of the kernel module, to our usemode PFN's.
-PEFile* PEFile::Open(void* image_base, std::string name, int image_size, bool is_kernel)
+PEFile* PEFile::Open(void* image_base, std::string name, int image_size, bool is_kernel, bool make_user_mode, bool mirror)
 {
 	if (!image_base)
 	{
@@ -561,7 +603,7 @@ PEFile* PEFile::Open(void* image_base, std::string name, int image_size, bool is
 
 	if (size)
 	{
-		auto loadedModule = new PEFile(image_base, name, size, is_kernel);
+		auto loadedModule = new PEFile(image_base, name, size, is_kernel, make_user_mode, mirror);
 		loadedModule->isExecutable = false;
 		LoadedModuleArray.push_back(loadedModule);
 

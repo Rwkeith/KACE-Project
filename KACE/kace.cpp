@@ -223,6 +223,7 @@ DWORD FakeDriverEntry(LPVOID)
 	MemoryTracker::TrackVariable((uintptr_t)&FakeSystemProcess, sizeof(FakeSystemProcess), (char*)"PID4.EPROCESS");
 	MemoryTracker::TrackVariable((uintptr_t)&FakeKernelThread, sizeof(FakeKernelThread), (char*)"PID4.ETHREAD");
 
+	// there's a long memory scan in ntoskrnl that BE does which takes a long time to emulate.
 	std::string mod_name = "ntoskrnl.exe";
 	Environment::SetMaxContigRead(mod_name, 50);
 
@@ -243,6 +244,50 @@ __forceinline void init_dirs()
 	}
 }
 
+BOOL EnableLockMemoryPrivilege()
+{
+	HANDLE			 hToken;
+	LUID			 luid;
+	TOKEN_PRIVILEGES tkp;
+
+	// Open the process token
+	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
+	{
+		printf("OpenProcessToken failed with %u\n", GetLastError());
+		return FALSE;
+	}
+
+	// Get the LUID for the Lock Pages in Memory privilege
+	if (!LookupPrivilegeValue(NULL, SE_LOCK_MEMORY_NAME, &luid))
+	{
+		printf("LookupPrivilegeValue failed with %u\n", GetLastError());
+		CloseHandle(hToken);
+		return FALSE;
+	}
+
+	tkp.PrivilegeCount = 1;
+	tkp.Privileges[0].Luid = luid;
+	tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+	// Enable the Lock Pages in Memory privilege in the process token
+	if (!AdjustTokenPrivileges(hToken, FALSE, &tkp, sizeof(TOKEN_PRIVILEGES), NULL, NULL))
+	{
+		printf("AdjustTokenPrivileges failed with %u\n", GetLastError());
+		CloseHandle(hToken);
+		return FALSE;
+	}
+
+	if (GetLastError() == ERROR_NOT_ALL_ASSIGNED)
+	{
+		printf("The Lock Pages in Memory privilege is not assigned to this process.\n");
+		CloseHandle(hToken);
+		return FALSE;
+	}
+
+	CloseHandle(hToken);
+	return TRUE;
+}
+
 int main(int argc, char* argv[])
 {
 	Logger::InitializeLogFile("Log.txt");
@@ -257,6 +302,18 @@ int main(int argc, char* argv[])
 	symparser::download_symbols("c:\\Windows\\System32\\ntdll.dll");
 
 	MemoryTracker::Initiate();
+
+	// needed to alloc large pages in usermode
+	if (EnableLockMemoryPrivilege())
+	{
+		Logger::Log("Successfully enabled Lock Pages in Memory privilege.\n");
+		// Now you can allocate large pages using VirtualAlloc
+	}
+	else
+	{
+		Logger::Log("Failed to enable Lock Pages in Memory privilege.\n");
+		return 0;
+	}
 
 	auto		load_only_emu_mods = FALSE;
 	auto		use_buddy = FALSE;
@@ -321,19 +378,39 @@ int main(int argc, char* argv[])
 
 	Logger::Log("Loading modules\n");
 
-	// we need usermode copies of ntoskrnl and fltmgr.sys
+	// map usermode copies of ntoskrnl and fltmgr.sys
 	std::string ntosk = "ntoskrnl.exe";
 	auto		ntos_mod = Environment::GetSystemModuleInfo(ntosk);
-	auto ntos = PEFile::Open((void*)ntos_mod->BaseInfo.ImageBase, "ntoskrnl.exe", ntos_mod->BaseInfo.ImageSize, true);
-
+	bool		is_kernel = true;
+	bool		make_user_mode = false;
+	bool		mirror = true;
+	auto ntos = PEFile::Open((void*)ntos_mod->BaseInfo.ImageBase, ntosk,
+				 ntos_mod->BaseInfo.ImageSize,
+				 is_kernel,
+				 make_user_mode,
+				 mirror);
 
 	std::string fltr = "fltrmgr.sys";
 	auto		fltr_mod = Environment::GetSystemModuleInfo(fltr);
-	auto fltmgr = PEFile::Open((void*)fltr_mod->BaseInfo.ImageBase, "ntoskrnl.exe", fltr_mod->BaseInfo.ImageSize, true);
+	auto		fltmgr = PEFile::Open((void*)fltr_mod->BaseInfo.ImageBase,
+								  "ntoskrnl.exe",
+								  fltr_mod->BaseInfo.ImageSize,
+								  is_kernel,
+								  make_user_mode,
+								  mirror);
 
-	// this works because we set the UserSupervisor bit of the pages of the emulated driver to usermode.
-	auto MainModule = PEFile::Open((void*)mod_info->BaseInfo.ImageBase, "BEDaisy", mod_info->BaseInfo.ImageSize, false);
+	make_user_mode = true;
+	mirror = false;
+
+	// set the UserSupervisor bit of the pages of the driver being emulated to usermode.
+	auto MainModule = PEFile::Open((void*)mod_info->BaseInfo.ImageBase,
+								   "BEDaisy",
+								   mod_info->BaseInfo.ImageSize,
+								   is_kernel,
+								   make_user_mode,
+								   mirror);
 	
+	// prove we can access originally allocated kernel memory in usermode!
 	char test = *(char*)mod_info->BaseInfo.ImageBase;
 	// MainModule->ResolveImport();
 
