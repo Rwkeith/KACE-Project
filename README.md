@@ -65,8 +65,9 @@ You should now be able to `Build Solution`
 
 ## Development and Debugging
 
-You may need to go into Exception Settings and enable Win32 Exceptions->0xc0000005 Access Violation to catch going into the ExceptionHandler.
-All other questions, should probably ask Keith.
+When running in VS Debugger, in Exception Settings disable `0xc000005 Access Violation` else the debugger will break on access violations to variables that are tracked.
+
+Use an up to date Windows 10 Build.  Tested on Build 19044.
 
 ## General Usage
 Specify a path for driver you want to emulate.  Optional flag `load_only_emu_mods` will only load modules in `C:\emu\` folder.
@@ -74,6 +75,4 @@ Specify a path for driver you want to emulate.  Optional flag `load_only_emu_mod
 .\KACE.exe <path_to_driver>  [load_only_emu_mods]
 ```
 
-When running in VS Debugger, in Exception Settings disable `0xc000005 Access Violation` else the debugger will break on access violations to variables that are tracked.
 
-Use an up to date Windows 10 Build.  Tested on Build 19044.
