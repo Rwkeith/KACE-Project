@@ -223,6 +223,8 @@ PEFile::PEFile(void* image_base, std::string name, uintmax_t size, bool is_kerne
 		vm = ptedit_resolve((void*)((uint64_t)image_base), 0);
 		if (vm.pmd & PTEDIT_PAGE_BIT_PSE)
 		{
+			// MEM_LARGE_PAGES requires SeLockMemoryPrivilege
+			// MEM_RESERVE will reserve the address range, but not assign physical memory to the entries
 			mapped_buffer = (unsigned char*)VirtualAlloc(NULL, calc_size, MEM_RESERVE | MEM_LARGE_PAGES, PAGE_READWRITE);
 		}
 		else

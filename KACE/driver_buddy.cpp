@@ -29,7 +29,7 @@ bool DriverBuddy::Init(std::string& driverPath)
 
 	// Build DriverBuddy.sys path
 	//
-	const auto path = std::string(buf) + "\\DriverBuddy.sys";
+	const auto path = std::string(buf) + "\\..\\x64\\debug\\DriverBuddy.sys";
 
 	// Create / Find DriverBuddy service
 	//
