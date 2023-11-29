@@ -46,8 +46,8 @@ namespace VCPU
 
 	void Initialize();
 
-	bool Decode(PCONTEXT context, ZydisDecodedInstruction* instr);
-	void PrintInstr(ZydisDecodedInstruction* instr);
+	bool Decode(PCONTEXT context, ZydisDecodedInstruction* instr, ZydisDecodedOperand* operand);
+	void PrintInstr(ZydisDecodedInstruction* instr, ZydisDecodedOperand* operand);
 
 	namespace PrivilegedInstruction
 	{
@@ -56,19 +56,25 @@ namespace VCPU
 		bool WriteMSR(PCONTEXT context, ZydisDecodedInstruction* instr);
 		bool ReadPIO(PCONTEXT context, ZydisDecodedInstruction* instr);
 		bool WritePIO(PCONTEXT context, ZydisDecodedInstruction* instr);
-		bool EmulatePrivilegedMOV(PCONTEXT context, ZydisDecodedInstruction* instr);
+		bool EmulatePrivilegedMOV(PCONTEXT context, ZydisDecodedInstruction* instr, ZydisDecodedOperand* operands);
 	}  // namespace PrivilegedInstruction
 
 	namespace MemoryRead
 	{
 		bool Parse(uintptr_t addr, PCONTEXT context);
-		bool EmulateRead(uintptr_t addr, PCONTEXT context, ZydisDecodedInstruction* instr);
+		bool EmulateRead(uintptr_t				  addr,
+						 PCONTEXT				  context,
+						 ZydisDecodedInstruction* instr,
+						 ZydisDecodedOperand*	  operand);
 	}  // namespace MemoryRead
 
 	namespace MemoryWrite
 	{
 		bool Parse(uintptr_t addr, PCONTEXT context);
-		bool EmulateWrite(uintptr_t addr, PCONTEXT context, ZydisDecodedInstruction* instr);
+		bool EmulateWrite(uintptr_t				   addr,
+						  PCONTEXT				   context,
+						  ZydisDecodedInstruction* instr,
+						  ZydisDecodedOperand*	   operand);
 	}  // namespace MemoryWrite
 
 	namespace InstrEmu
