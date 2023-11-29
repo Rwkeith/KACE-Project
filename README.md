@@ -46,9 +46,9 @@ The original Kace project mapped kernel modules into usermode space such as ntos
 ### Requirements Setup
 Note: May be preferred to run in VM during some kernel related debugging and development.  (Will run MUCH slower depending on HW)
 
-OS: Windows 10 22H2 Build 19045 (some builds may have issues finding symbols from msft servers, which Kace depends on for logging)
-IDE: VS2022, Windows 10 SDK 10.0.22621.0
-Dependecies:  [WDK 10.0.22621](https://learn.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk)
+* OS: Windows 10 22H2 Build 19045 (some builds may have issues finding symbols from msft servers, which Kace depends on for logging)
+* IDE: VS2022, Windows 10 SDK 10.0.22621.0
+* Dependecies:  [WDK 10.0.22621](https://learn.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk)
 
 *Make sure Visual Studio is always ran as administrator when running Kace through VS's debugger!*
 
