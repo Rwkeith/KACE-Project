@@ -8,10 +8,10 @@ Continuation of the original KACE project from waryas and friends
 
 ## What has changed / been added from the original Kace project
 
-### *Original Method*
+## *Original Method*
 The original Kace project mapped kernel modules into usermode space such as ntos, fltrmgr, win32k, etc.  Then instrumented/emulated driver is then mapped in, where all these mappings are set with `NO_ACCESS` protection so the registered custom exception handler can take control and CPU emulate each instruction with Zydis.  The handler instrument's the Driver and the developer can add handler functions for ntos or other imports used by the instrumented driver.  This version of Kace fully emulated BEDaisy in usermode before moving towards the new approach (some core issues were fixed).
 
-### New Method
+## New Method
 
 * A helper driver is loaded first *DriverBuddy(tm)*
   - Intercepts driver loading with a registered load handler and patches DriverEntry temporarily to skip kernel exeuction
@@ -42,6 +42,33 @@ The original Kace project mapped kernel modules into usermode space such as ntos
 
 
 ## Developer Guide
+
+### Requirements Setup
+Note: May be preferred to run in VM during some kernel related debugging and development.  (Will run MUCH slower depending on HW)
+
+OS: Windows 10 22H2 Build 19045 (some builds may have issues finding symbols from msft servers, which Kace depends on for logging)
+IDE: VS2022, Windows 10 SDK 10.0.22621.0
+Dependecies:  [WDK 10.0.22621](https://learn.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk)
+
+*Make sure Visual Studio is always ran as administrator when running Kace through VS's debugger!*
+
+
+
+### VCPKG configuration
+Make sure you have vcpkg included in VS2022 installation (should be installed by default)
+
+Note: If you go into Kace project configuration properties and there isn't an option for vcpkg, then run `vcpkg integrate install` in Developer Powershell and restart VS.
+
+1. In Developer Powershell, root project directory `vcpkg x-update-baseline --add-initial-baseline`, then `vcpkg install`
+
+You should now be able to `Build Solution`
+
+## Development and Debugging
+
+You may need to go into Exception Settings and enable Win32 Exceptions->0xc0000005 Access Violation to catch going into the ExceptionHandler.
+All other questions, should probably ask Keith.
+
+## General Usage
 Specify a path for driver you want to emulate.  Optional flag `load_only_emu_mods` will only load modules in `C:\emu\` folder.
 ```shell
 .\KACE.exe <path_to_driver>  [load_only_emu_mods]
