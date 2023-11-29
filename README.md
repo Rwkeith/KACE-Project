@@ -76,6 +76,10 @@ In an elevated shell:
 
 In Visual Studio KACE project properties update *Debugging->Command Arguments* to `c:\emu\BEDaisy.sys load_only_emu_mods use_buddy`
 
+### Emulating BattleEye
+
+Run the Regedit file `BEDaisy.reg` (project root) which provides the driver configuration settings for scm to load BEDaisy.
+
 ## Development and Debugging
 
 When running in VS Debugger, in Exception Settings disable `0xc000005 Access Violation` else the debugger will break on access violations to variables that are tracked.
