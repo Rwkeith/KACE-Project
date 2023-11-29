@@ -43,7 +43,7 @@ The original Kace project mapped kernel modules into usermode space such as ntos
 
 ## Developer Guide
 
-### Requirements Setup
+### Requirements
 Note: May be preferred to run in VM during some kernel related debugging and development.  (Will run MUCH slower depending on HW)
 
 - OS: Windows 10 22H2 Build 19045 (some builds may have issues finding symbols from msft servers, which Kace depends on for logging)
@@ -53,15 +53,24 @@ Note: May be preferred to run in VM during some kernel related debugging and dev
 *Make sure Visual Studio is always ran as administrator when running Kace through VS's debugger!*
 
 
-
 ### VCPKG configuration
 Make sure you have vcpkg included in VS2022 installation (should be installed by default)
 
 Note: If you go into Kace project configuration properties and there isn't an option for vcpkg, then run `vcpkg integrate install` in Developer Powershell and restart VS.
 
-1. In Developer Powershell, root project directory `vcpkg x-update-baseline --add-initial-baseline`, then `vcpkg install`
+1. In Developer Powershell, root project directory `vcpkg x-update-baseline --add-initial-baseline`, then `vcpkg install`  (enables baseline feature)
 
 You should now be able to `Build Solution`
+
+### Windows configuration
+
+In an elevated shell:
+- Enable test signing `bcdedit /set testsigning on` (to load unsigned drivers)
+- Enable kernel debugging `bcdedit /debug on` (needed in some cases when unable to load an unsigned driver)
+- Add user to 'Lock pages in memory' local policy  (allows large page allocations in usermode)
+    * windows key + R: `secpol.msc`
+    * Local Policies -> User Rights Assignment -> Lock pages in memory
+    * Add your account
 
 ## Development and Debugging
 
