@@ -390,7 +390,7 @@ int main(int argc, char* argv[])
 				 make_user_mode,
 				 mirror);
 
-	std::string fltr = "fltrmgr.sys";
+	std::string fltr = "FLTMGR.SYS";
 	auto		fltr_mod = Environment::GetSystemModuleInfo(fltr);
 	auto		fltmgr = PEFile::Open((void*)fltr_mod->BaseInfo.ImageBase,
 								  "ntoskrnl.exe",

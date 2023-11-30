@@ -219,7 +219,7 @@ PEFile::PEFile(void* image_base, std::string name, uintmax_t size, bool is_kerne
 		SIZE_T largePageSize = GetLargePageMinimum();
 		SIZE_T calc_size = RoundUpToLargePageSize(size, largePageSize);
 
-		// first page a larger page?  may need to handle case of mix of large/small pages.  currently treats entire buffer as one or the other.
+		// first page a large page?  may need to handle case of mix of large/small pages.  currently treats entire buffer as one or the other.
 		vm = ptedit_resolve((void*)((uint64_t)image_base), 0);
 		if (vm.pmd & PTEDIT_PAGE_BIT_PSE)
 		{
@@ -268,6 +268,7 @@ PEFile::PEFile(void* image_base, std::string name, uintmax_t size, bool is_kerne
 				// dest_vm_pd->pfn = pde_pfn;
 				dest_vm_pd->size = 1;
 				dest_vm_pd->present = 1;
+				dest_vm_pd->user_access = 1;  // 1;	// usermode
 				ptedit_update((void*)((uint64_t)mapped_buffer + i), 0, &dest_vm);
 
 				// assumes we have a pte?  we don't if we are a large page
@@ -286,10 +287,10 @@ PEFile::PEFile(void* image_base, std::string name, uintmax_t size, bool is_kerne
 			}
 			
 		}
-		auto test = (char*)(*mapped_buffer);
+		// auto test = (char*)(*mapped_buffer);
 		int test2 = 1 + 1;
 	}
-
+	char a_character = *((char*)mapped_buffer);
 	if (size)
 	{
 		this->isExecutable = false;

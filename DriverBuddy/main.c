@@ -63,7 +63,7 @@ NTSTATUS BuddyDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 			// RtlInitUnicodeString(drvName, data->driverName);
 			PsSetLoadImageNotifyRoutine(LoadImageNotifyRoutine);
 			DbgPrint("[DriverBuddy] LoadImageNotify routine set!\n");
-			// DbgPrint("Watching for %wZ\n", drvName);
+
 			break;
 		case IOCTL_DRIVER_BUDDY_UNWATCH_UNPATCH_DRIVER:
 			// Stop watching
@@ -92,6 +92,7 @@ NTSTATUS BuddyDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 			else
 			{
 				DbgPrint("[DriverBuddy] Nothing to unpatch...\n");
+				status = STATUS_INVALID_DEVICE_REQUEST;
 			}
 			
 			break;
@@ -130,6 +131,7 @@ NTSTATUS BuddyDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	return status;
 }
 
+// Patches DriverEntry to return immediately (gets unpatched later)
 void LoadImageNotifyRoutine(PUNICODE_STRING FullImageName, HANDLE ProcessId, PIMAGE_INFO ImageInfo)
 {
 	UNREFERENCED_PARAMETER(ProcessId);

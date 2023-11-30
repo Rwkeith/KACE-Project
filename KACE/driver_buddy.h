@@ -11,6 +11,6 @@ namespace DriverBuddy
 	bool		  Init(std::string &driverPath);
 	bool		  LoadEmulatedDrv(std::string &driverPath);
 	bool		  ToggleSMAP(bool enable);
-	bool		  DeInit(bool delete_flag);
+	bool		  StopService(bool delete_flag, SC_HANDLE svc_handle);
 	int			  Error(const char* message);
 }  // namespace DriverBuddy

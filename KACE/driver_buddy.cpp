@@ -1,6 +1,9 @@
+#include <filesystem>
+
 #include <Logger/Logger.h>
 #include "driver_buddy.h"
 #include "loader.h"
+#include "environment.h"
 
 // #include "utils.h"
 
@@ -37,11 +40,12 @@ bool DriverBuddy::Init(std::string& driverPath)
 
 	// is it already running?
 	hDevice = CreateFile(L"\\\\.\\DriverBuddy", GENERIC_WRITE, FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+
 	if (hDevice != INVALID_HANDLE_VALUE)
 	{
-		DeInit(false);
+		StopService(false, handle_driverbuddy_svc);
 	}
-	
+
 	// Load DriverBuddy.sys
 	//
 	handle_driverbuddy_svc ? loader::start_service(handle_driverbuddy_svc) : false;
@@ -53,19 +57,43 @@ bool DriverBuddy::Init(std::string& driverPath)
 	}
 
 	Logger::Log("[DriverBuddy] Service started successfully.\n");
-	
-	if (!LoadEmulatedDrv(driverPath))
+
+	// is it already loaded?
+	std::filesystem::path filePath(driverPath);
+	std::string			  fileName = filePath.filename().string();
+
+	auto mod_info = Environment::GetSystemModuleInfo(fileName);
+
+	std::filesystem::path filePath2(std::string((const char*)mod_info->BaseInfo.FullPathName));
+	std::string			  fileName2 = filePath2.filename().string();
+
+	if (strcmp(fileName.c_str(), fileName2.c_str()))
 	{
-		Logger::Log("Failed to load %s with DriverBuddy...\n", driverPath.c_str());
-		return false;
+		if (!LoadEmulatedDrv(driverPath))
+		{
+			Logger::Log("Failed to load %s with DriverBuddy...\n", driverPath.c_str());
+			return false;
+		}
+		Logger::Log("Successfully loaded %s\n", driverPath.c_str());
+	}
+	else
+	{
+		Logger::Log("%s is already loaded, skipping loading\n", driverPath.c_str());
 	}
 
-	Logger::Log("Successfully loaded %s\n", driverPath.c_str());
 	return true;
 }
 
 bool DriverBuddy::LoadEmulatedDrv(std::string& driverPath)
 {
+	// Find BEDaisy service (should always exist at this point)
+	//
+	auto handle_bedaisy_svc = loader::create_service("BEDaisy", "BEDaisy", driverPath);
+
+	// If the emulated driver is still loaded, we should unload it.  It's in an unknown state from a previous run
+	StopService(false, handle_bedaisy_svc);
+
+
 	hDevice = CreateFile(L"\\\\.\\DriverBuddy", GENERIC_WRITE, FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
 	if (hDevice == INVALID_HANDLE_VALUE)
 	{
@@ -117,7 +145,7 @@ bool DriverBuddy::LoadEmulatedDrv(std::string& driverPath)
 
 		if (!success)
 		{
-			Error("[DriverBuddy] Failed to unpatch and unregister callback...\n");
+			Error("[DriverBuddy] Failed to unpatch and unregister callback...Did the emulated driver ever load?\n");
 			CloseHandle(hDevice);
 			hDevice = 0;
 			return false;
@@ -168,13 +196,13 @@ bool DriverBuddy::ToggleSMAP(bool enable)
 }
 
 // Unloads DriverBuddy.sys
-bool DriverBuddy::DeInit(bool delete_service)
+bool DriverBuddy::StopService(bool delete_service, SC_HANDLE svc_handle)
 {
 	SERVICE_STATUS svc_status{};
 
 	// Unload DriverBuddy.sys
 	//
-	bool success = loader::stop_service(handle_driverbuddy_svc, &svc_status);
+	bool success = loader::stop_service(svc_handle, &svc_status);
 
 	// Service not started
 	//
@@ -185,7 +213,7 @@ bool DriverBuddy::DeInit(bool delete_service)
 	//
 	if (delete_service)
 	{
-		success ? loader::delete_service(handle_driverbuddy_svc) : false;
+		success ? loader::delete_service(svc_handle) : false;
 	}
 
 	return success;
