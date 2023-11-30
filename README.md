@@ -78,7 +78,8 @@ In Visual Studio KACE project properties update *Debugging->Command Arguments* t
 
 ### Emulating BattleEye
 
-Run the Regedit file `BEDaisy.reg` (project root) which provides the driver configuration settings for scm to load BEDaisy.
+ - Run the Regedit file `BEDaisy.reg` (project root). This provides the driver configuration settings for scm to load BEDaisy.
+ - Go into `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\BEDaisy` and change `ImagePath` to the path where BEDaisy.sys is located.  E.g. `c:\emu\BEDaisy.sys`
 
 ## Development and Debugging
 
