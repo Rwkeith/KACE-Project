@@ -392,8 +392,7 @@ int main(int argc, char* argv[])
 
 	std::string fltr = "FLTMGR.SYS";
 	auto		fltr_mod = Environment::GetSystemModuleInfo(fltr);
-	auto		fltmgr = PEFile::Open((void*)fltr_mod->BaseInfo.ImageBase,
-								  "ntoskrnl.exe",
+	auto		fltmgr = PEFile::Open((void*)fltr_mod->BaseInfo.ImageBase, fltr,
 								  fltr_mod->BaseInfo.ImageSize,
 								  is_kernel,
 								  make_user_mode,
@@ -416,8 +415,8 @@ int main(int argc, char* argv[])
 
 	// If it's in kernel say it's executable
 	// also if it's the emulated module say it's executable
-	ntos->SetExecutable(true);
-	fltmgr->SetExecutable(true);
+	//ntos->SetExecutable(true);
+	//fltmgr->SetExecutable(true);
 	MainModule->SetExecutable(true);
 
 	// this will create the shadow buffer's and mark the memory of all PEFile objects created as PAGE_NO_ACCESS or PAGE_READ_WRITE

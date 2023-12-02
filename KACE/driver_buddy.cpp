@@ -118,7 +118,7 @@ bool DriverBuddy::LoadEmulatedDrv(std::string& driverPath)
 	
 	if (success)
 	{
-		printf("[DriverBuddy] Watching for %s...\n", driverPath.c_str());
+		Logger::Log("[DriverBuddy] Watching for %s...\n", driverPath.c_str());
 
 		// load BEDaisy now...
 		char buf[MAX_PATH]{};
@@ -129,8 +129,9 @@ bool DriverBuddy::LoadEmulatedDrv(std::string& driverPath)
 		handle_emulated_drv_svc = loader::create_service("BEDaisy", "BEDaisy", path);
 		Logger::Log("[DriverBuddy] Starting %s\n", driverPath.c_str());
 		handle_emulated_drv_svc ? loader::start_service(handle_emulated_drv_svc) : false;
+		Logger::Log("[DriverBuddy] Trying to prevent DriverEntry() from executing...\n");
 		
-		Logger::Log("[DriverBuddy] Waiting 3 seconds to give time for DriverEntry thread to return...");
+		Logger::Log("[DriverBuddy] Waiting 3 seconds to give time for DriverEntry thread to return...\n");
 		Sleep(3);
 
 		Logger::Log("[DriverBuddy] Unpatching and unregistering LoadImageNotify routine...\n");
@@ -145,7 +146,7 @@ bool DriverBuddy::LoadEmulatedDrv(std::string& driverPath)
 
 		if (!success)
 		{
-			Error("[DriverBuddy] Failed to unpatch and unregister callback...Did the emulated driver ever load?\n");
+			Logger::Log("[DriverBuddy] Failed to unpatch and unregister callback...Did %s ever load?\n", driverPath.c_str());
 			CloseHandle(hDevice);
 			hDevice = 0;
 			return false;
@@ -155,7 +156,7 @@ bool DriverBuddy::LoadEmulatedDrv(std::string& driverPath)
 	}
 	else
 	{
-		Error("[DriverBuddy] Failed to load emulated driver.\n");
+		Logger::Log("[DriverBuddy] Failed to load emulated driver.\n");
 		CloseHandle(hDevice);
 		hDevice = 0;
 		return false;

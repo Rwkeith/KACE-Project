@@ -60,8 +60,17 @@ class PEFile
 	PIMAGE_FILE_HEADER		 pImageFileHeader = 0;
 	PIMAGE_SECTION_HEADER	 pImageSectionHeader = 0;
 
-	unsigned char* mapped_buffer = 0;  // Will be set as NO_ACCESS once mapping is done
-	unsigned char* shadow_buffer = 0;  // A 1:1 copy of the mapped buffer that will be used for read/write
+	bool is_kernel = false;
+	bool mirrored = false;
+	bool make_um = false;
+
+	void* imagebase_va = 0;
+	unsigned char* source_mapped_buffer = 0;	// IF Usermode:  Treat mapped_buffer as source_mapped_buffer						IF Kernel:  the real kernel base of the module.
+	
+	unsigned char* mapped_buffer = 0;			// <-  What the instrumented driver will see!    
+												// IF Usermode:  Will be set as NO_ACCESS once mapping is done.						IF Kernel:  Buffer that represents the real kernel memory
+	
+	unsigned char* shadow_buffer = 0;			// IF Usermode:  A 1:1 copy of the mapped buffer that will be used for read/write.  IF Kernel:  Buffer that has PFN's from kernel in usermode
 
 	uintmax_t virtual_size = 0;
 	uintmax_t imagebase = 0;
@@ -69,10 +78,16 @@ class PEFile
 
 	bool isExecutable = false;
 
+	void CheckLoadPTEdit();
+	void MapKernelToUserMode();
+	void MirrorKernelToUserMode();
+	unsigned char* GetProtectedBuffer();
+
 	void ParseHeader();
 	void ParseSection();
 	void ParseImport();
 	void ParseExport();
+
 
 	PEFile(std::string filename, std::string name, uintmax_t size);
 	PEFile(void* image_base, std::string name, uintmax_t size, bool is_kernel, bool make_user_mode, bool mirror);
