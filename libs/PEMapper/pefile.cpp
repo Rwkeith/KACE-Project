@@ -166,7 +166,7 @@ PEFile::PEFile(std::string filename, std::string name, uintmax_t size)
 	}
 }
 
-SIZE_T RoundUpToLargePageSize(SIZE_T size, SIZE_T largePageSize)
+SIZE_T RoundUpToPageSize(SIZE_T size, SIZE_T largePageSize)
 {
 	return (size + largePageSize - 1) / largePageSize * largePageSize;
 }
@@ -181,12 +181,7 @@ void PEFile::CheckLoadPTEdit()
 			return;
 		}
 
-		if (ptedit_init())
-		{
-			Logger::Log("Failed to open PTEdit device\n");
-			return;
-		}
-		ptedit_initialized = true;
+		ptedit_initialized = true;		
 	}
 }
 
@@ -216,20 +211,27 @@ void PEFile::MapKernelToUserMode()
 void PEFile::MirrorKernelToUserMode()
 {
 	SIZE_T largePageSize = GetLargePageMinimum();
-	SIZE_T calc_size = RoundUpToLargePageSize(size, largePageSize);
+	SIZE_T large_size = RoundUpToPageSize(size, largePageSize);
+	SIZE_T regular_size = RoundUpToPageSize(size, 0x1000);
 
 	// first page a large page?  may need to handle case of mix of large/small pages.  currently treats entire buffer as
 	// one or the other.
 	ptedit_entry_t vm = {};
 	vm = ptedit_resolve((void*)((uint64_t)this->imagebase_va), 0);
+	SIZE_T		calc_size;
+	std::string page_type;
 	if (vm.pmd & (1 << PTEDIT_PAGE_BIT_PSE))
 	{
+		calc_size = large_size;
+		page_type = "LARGE";
 		// MEM_LARGE_PAGES requires SeLockMemoryPrivilege
 		// MEM_RESERVE will reserve the address range, but not assign physical memory to the entries
 		mapped_buffer = (unsigned char*)VirtualAlloc(NULL, calc_size, MEM_RESERVE | MEM_LARGE_PAGES, PAGE_READWRITE);
 	}
 	else
 	{
+		calc_size = regular_size;
+		page_type = "regular";
 		mapped_buffer = (unsigned char*)VirtualAlloc(
 			NULL, calc_size, MEM_COMMIT, PAGE_READWRITE);  // using MEM_COMMIT. MEM_RESERVE doesn't create PTE's which
 														   // is a problem if we use regular pages
@@ -246,7 +248,7 @@ void PEFile::MirrorKernelToUserMode()
 		return;
 	}
 
-	Logger::Log("Allocated usermode memory for %s at 0x%p\n", name.c_str(), mapped_buffer);
+	Logger::Log("Allocated usermode memory for %s at 0x%p,0x%p,%s\n", name.c_str(), mapped_buffer, calc_size, page_type.c_str());
 
 	// map the PFN's from the kernel pages to the new usermode pages
 	// this way, the usermode pages now reference the actual used host data on the machine
@@ -313,7 +315,7 @@ unsigned char* PEFile::GetProtectedBuffer()
 }
 
 PEFile::PEFile(void*	   image_base,
-			   std::string name,
+			   std::string img_name,
 			   uintmax_t   image_size,
 			   bool		   is_kernel_,
 			   bool		   make_user_mode,
@@ -324,6 +326,7 @@ PEFile::PEFile(void*	   image_base,
 	make_um = make_user_mode;
 	imagebase_va = image_base;
 	size = image_size;
+	this->name = img_name;
 
 	CheckLoadPTEdit();
 
@@ -333,19 +336,30 @@ PEFile::PEFile(void*	   image_base,
 	// Need to make kernel PTE's usermode
 	if (is_kernel && make_user_mode)
 	{
+		if (ptedit_init())
+		{
+			Logger::Log("Failed to open PTEdit device\n");
+			return;
+		}
 		MapKernelToUserMode();
+		ptedit_cleanup();
 	}
 	else if (is_kernel && mirror)
 	{
+		if (ptedit_init())
+		{
+			Logger::Log("Failed to open PTEdit device\n");
+			return;
+		}
 		// copies PFN's from kernel to a usermode reserved buffer. may need to consider locking the pages in Kernel, else PTE's could be free'd in kernel and invalid in UM.
 		MirrorKernelToUserMode();
+		ptedit_cleanup();
 	}
 
 	if (size)
 	{
 		this->isExecutable = false;
 		this->filename = filename;
-		this->name = name;
 
 		ParseHeader();
 		ParseSection();
