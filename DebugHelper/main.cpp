@@ -10,6 +10,7 @@
 
 #define LOG_FILE_REL_PATH "../../KACE/Log.txt"
 #define DEBUG_LOG_FILE_REL_PATH "../KACE/Log.txt"
+#define LOG_FILE_PATH_USING_EXTENSION "KACE/Log.txt"
 
 void CleanPageTable(UINT64 addr, UINT64 size, int pid)
 {
@@ -85,13 +86,13 @@ int main(int argc, char** argv)
 
 	if (ptedit_init())
 	{
-		printf("Failed to open PTEdit device\n");
+		printf("[ERROR] Failed to open PTEdit device, make sure you are running as administrator!\n");
 		std::cin.get();
 		return 1;
 	}
 
-	printf("Opened PTEdit device!\n");
-	std::string relativePath = LOG_FILE_REL_PATH;
+	printf("[INFO] Opened PTEdit device!\n");
+	std::string relativePath = LOG_FILE_PATH_USING_EXTENSION;	// LOG_FILE_REL_PATH;
 
 	TCHAR buffer[MAX_PATH];
 	DWORD dwRet;
@@ -116,7 +117,7 @@ int main(int argc, char** argv)
 
 	std::regex pattern(R"(.+ at (0x[0-9A-Fa-f]{1,16}),(0x[0-9A-Fa-f]{1,16}),(LARGE|regular))");
 
-
+	std::cout << "Looking for matches..." << std::endl;
     std::string line;
 	while (std::getline(file, line))
 	{
@@ -154,7 +155,8 @@ int main(int argc, char** argv)
 	file.close();
 
 	ptedit_cleanup();
-
+	std::cout << "Done." << std::endl;
+	std::cout << "Press enter to exit." << std::endl;
 	std::cin.get();
 	return 0;
 }

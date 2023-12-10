@@ -339,8 +339,6 @@ int main(int argc, char* argv[])
 
 	if (argc > 3)
 	{
-		
-		//  Working on PTE Manipulation for now...
 		load_flag = argv[3];
 		if (load_flag == "use_buddy")
 		{
