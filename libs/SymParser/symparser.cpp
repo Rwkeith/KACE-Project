@@ -214,14 +214,22 @@ namespace symparser {
     } // namespace
 
     std::vector<sym_t> download_symbols(const std::filesystem::path& img) {
-        auto img_path_str = img.string();
+        if (!cached_symbols[img].empty())
+            return cached_symbols[img];
+        
+        std::wstring img_path_expanded = util::ExpandEnvironmentVariables(img);
 
-        // @note: @es3n1n: if this image has cached parsed symbols
-        //
-        if (!cached_symbols[img_path_str].empty())
-            return cached_symbols[img_path_str];
+        std::fstream f(img_path_expanded, std::ios::in | std::ios::binary);
+        if (!f)
+        {
+            // Handle the error
+            Logger::Log("Failed to open file: %S\n", img_path_expanded.c_str());
+            __debugbreak();
+        }
+        
 
-        auto image = util::read_file(img);
+
+        auto image = util::read_file(img_path_expanded);
         if (image.empty())
             __debugbreak();
 
@@ -245,7 +253,7 @@ namespace symparser {
 
         // @note: @es3n1n: caching the result and returning it
         //
-        cached_symbols[img_path_str] = symbols;
+        cached_symbols[img] = symbols;
         return symbols;
     }
 

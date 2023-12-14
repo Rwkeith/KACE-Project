@@ -10,7 +10,7 @@ namespace Provider
 	extern std::unordered_map<std::string, PVOID>	 data_providers;
 	extern std::vector<std::pair<uintptr_t, size_t>> export_data_range;
 
-	uintptr_t FindFuncImpl(uintptr_t ptr);
+	uintptr_t FindFuncImpl(uintptr_t ptr, PCONTEXT ctx);
 	uintptr_t FindDataImpl(uintptr_t ptr);
 
 	uintptr_t AddFuncImpl(const char* nameFunc, PVOID hookFunc);

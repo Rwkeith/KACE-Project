@@ -314,19 +314,19 @@ unsigned char* PEFile::GetProtectedBuffer()
 	return this->mapped_buffer;
 }
 
-PEFile::PEFile(void*	   image_base,
+PEFile::PEFile(PRTL_PROCESS_MODULE_INFORMATION_EX mod,
 			   std::string img_name,
-			   uintmax_t   image_size,
 			   bool		   is_kernel_,
 			   bool		   make_user_mode,
 			   bool		   mirror)
 {
+	proc_mod = mod;
 	is_kernel = is_kernel_;
 	mirrored = mirror;
 	make_um = make_user_mode;
-	imagebase_va = image_base;
-	size = image_size;
-	this->name = img_name;
+	imagebase_va = (void*)proc_mod->BaseInfo.ImageBase;
+	size = proc_mod->BaseInfo.ImageSize;
+	name = img_name;
 
 	CheckLoadPTEdit();
 
@@ -359,7 +359,7 @@ PEFile::PEFile(void*	   image_base,
 	if (size)
 	{
 		this->isExecutable = false;
-		this->filename = filename;
+		this->filename = (const char*)proc_mod->BaseInfo.FullPathName;
 
 		ParseHeader();
 		ParseSection();
@@ -529,7 +529,7 @@ void PEFile::CreateShadowBuffer()
 {
 	if (is_kernel && mirrored)
 	{
-		Logger::Log("[PEFile] This file is backed by kernel memory and mirrored to UM. Making shadow_buffer == mapped_buffer\n");
+		Logger::Log("[PEFile] %s is backed by kernel memory and mirrored to UM. Making shadow_buffer == mapped_buffer\n", this->name.c_str());
 		shadow_buffer = mapped_buffer;					// mapped_buffer is safe to access from UM
 		mapped_buffer = (unsigned char*)imagebase_va;	// make mapped_buffer the buffer that will cause an exception on access
 		return;
@@ -540,7 +540,7 @@ void PEFile::CreateShadowBuffer()
 	shadow_buffer = (unsigned char*)_aligned_malloc(this->GetVirtualSize(), 0x10000);
 	if (!shadow_buffer)
 	{
-		Logger::Log("Unable to allocate memory for shadow buffer! PEFile: %s\n", filename.c_str());
+		Logger::Log("Unable to allocate memory for shadow buffer! PEFile: %s\n", name.c_str());
 		return;
 	}
 	
@@ -662,22 +662,95 @@ PEFile* PEFile::Open(std::string path, std::string name)
 	}
 }
 
+PEFile* PEFile::MirrorMemoryToUM(std::string name)
+{
+	PEFile* loadedModule = 0;
+	if (!moduleList_namekey.contains(name))
+	{
+		auto mod = Environment::GetSystemModuleInfo(name);
+
+		// does this work
+		if (!mod->BaseInfo.ImageBase)
+		{
+			Logger::Log("Unable to locate module %s\n", name.c_str());
+			return 0;
+		}
+
+		bool is_kernel = true;
+		bool make_user_mode = false;
+		bool mirror = true;
+		loadedModule = PEFile::Open(mod, 
+									name,
+									is_kernel,
+									make_user_mode,
+									mirror);
+		
+		if (loadedModule == 0)
+		{
+			Logger::Log("Unable to mirror %s to UM\n", name.c_str());
+			return 0;
+		}
+
+		Logger::Log("Mirrored %s to UM\n", name.c_str());
+		return loadedModule;
+	}
+	else
+	{
+		Logger::Log("Module %s is already mirrored to UM\n", name.c_str());
+		return moduleList_namekey[name];
+	}
+}
+
+PEFile* PEFile::ChangeEntriesToUM(std::string name)
+{
+	PEFile* loadedModule = 0;
+	if (!moduleList_namekey.contains(name))
+	{
+		auto mod = Environment::GetSystemModuleInfo(name);
+
+		// does this work
+		if (!mod->BaseInfo.ImageBase)
+		{
+			Logger::Log("Unable to locate module %s\n", name.c_str());
+			return 0;
+		}
+
+		bool is_kernel = true;
+		bool make_user_mode = true;
+		bool mirror = false;
+		loadedModule = PEFile::Open(mod, name,
+									is_kernel,
+									make_user_mode,
+									mirror);
+		
+		if (loadedModule == 0)
+		{
+			Logger::Log("Unable to map %s to UM\n", name.c_str());
+			return 0;
+		}
+
+		Logger::Log("Mapped %s to UM\n", name.c_str());
+		return loadedModule;
+	}
+	else
+	{
+		Logger::Log("Module %s is already mapped to UM\n", name.c_str());
+		return moduleList_namekey[name];
+	}
+}
+
 // on r/w/x, the emulated driver should go to our exception handler.  No need to mark as PAGE_NO_ACCESS, PAGE_READ_WRITE
 // however, we still need a shadow buffer.
 // We allocate our shadow buffer, and assign the PFN's of the kernel module, to our usemode PFN's.
-PEFile* PEFile::Open(void* image_base, std::string name, int image_size, bool is_kernel, bool make_user_mode, bool mirror)
+PEFile* PEFile::Open(PRTL_PROCESS_MODULE_INFORMATION_EX mod,
+					 std::string						name,
+					 bool								is_kernel,
+					 bool								remap_to_um,
+					 bool								mirror)
 {
-	if (!image_base)
+	if (mod->BaseInfo.ImageSize)
 	{
-		Logger::Log("Image base is 0...\n");
-		DebugBreak();
-	}
-
-	auto size = image_size;
-
-	if (size)
-	{
-		auto loadedModule = new PEFile(image_base, name, size, is_kernel, make_user_mode, mirror);
+		auto loadedModule = new PEFile(mod, name, is_kernel, remap_to_um, mirror);
 		loadedModule->isExecutable = false;
 		LoadedModuleArray.push_back(loadedModule);
 

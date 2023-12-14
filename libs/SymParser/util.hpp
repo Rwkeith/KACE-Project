@@ -6,6 +6,8 @@
 #include <vector>
 
 namespace util {
+    std::wstring ExpandEnvironmentVariables(const std::wstring& input);
+
     inline std::vector<uint8_t> read_file(const std::filesystem::path& path) {
         std::fstream f(path, std::ios::in | std::ios::binary);
         if (!f)

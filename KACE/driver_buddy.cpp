@@ -196,6 +196,46 @@ bool DriverBuddy::ToggleSMAP(bool enable)
 	return true;
 }
 
+bool DriverBuddy::Execute(PCONTEXT ctx)
+{		
+		// generally all Windows system functions follow the x64 calling convention
+		// RCX, RDX, R8, R9, XMM0-XMM3(if FP) are used for the first 4 arguments
+		DWORD returned;
+
+		void *ret = 0;
+
+		if (hDevice)
+		{
+		auto success = DeviceIoControl(hDevice,
+											  IOCTL_DRIVER_BUDDY_EXECUTE,
+											  nullptr,
+											  0,
+											  ret, sizeof(ret),
+											  &returned,
+											  nullptr);
+	
+		if (!success)
+		{
+			Error("[DriverBuddy] Failed to execute call.\n");
+			CloseHandle(hDevice);
+			hDevice = 0;
+			return false;
+		}
+
+		if (ret)
+		{
+			ctx->Rax = (DWORD64)ret;
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
 // Unloads DriverBuddy.sys
 bool DriverBuddy::StopService(bool delete_service, SC_HANDLE svc_handle)
 {

@@ -10,6 +10,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "environment.h"
+
 struct ImportData
 {
 	std::string library;
@@ -90,20 +92,26 @@ class PEFile
 
 
 	PEFile(std::string filename, std::string name, uintmax_t size);
-	PEFile(void* image_base, std::string name, uintmax_t size, bool is_kernel, bool make_user_mode, bool mirror);
+	PEFile(PRTL_PROCESS_MODULE_INFORMATION_EX mod,
+		   std::string						  name,
+		   bool								  is_kernel,
+		   bool								  make_user_mode,
+		   bool								  mirror);
 
    public:
 	bool isKernelLoaded;
+	PRTL_PROCESS_MODULE_INFORMATION_EX proc_mod = 0;
 
 	std::string filename;
 	std::string name;
 
 	static std::vector<PEFile*> LoadedModuleArray;
 
+	static PEFile* MirrorMemoryToUM(std::string name);
+	static PEFile* ChangeEntriesToUM(std::string name);
 	static PEFile* Open(std::string path, std::string name);
-	static PEFile* Open(void*		image_base,
+	static PEFile* Open(PRTL_PROCESS_MODULE_INFORMATION_EX mod,
 						std::string name,
-						int			image_size,
 						bool		is_kernel,
 						bool		make_user_mode,
 						bool		mirror);

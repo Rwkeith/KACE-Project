@@ -121,7 +121,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 				break;
 			case EXECUTE_VIOLATION:
 
-				auto rip = Provider::FindFuncImpl(addr_access);
+				auto rip = Provider::FindFuncImpl(addr_access, e->ContextRecord);
 
 				if (!rip)
 					DebugBreak();
@@ -335,7 +335,7 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	PRTL_PROCESS_MODULE_INFORMATION_EX mod_info;
+	
 
 	if (argc > 3)
 	{
@@ -349,14 +349,9 @@ int main(int argc, char* argv[])
 				return 0;
 			}
 		}
-		
-
-		std::string mod_name = "BEDaisy.sys";
-
-		mod_info = Environment::GetSystemModuleInfo(mod_name);
-		
-		// set module address range from kernel to user		
 	}
+
+	 // ntoskrnl_provider::Initialize();
 
 	/*
 	Environment::InitializeSystemModules(load_only_emu_mods);
@@ -377,55 +372,29 @@ int main(int argc, char* argv[])
 	Logger::Log("Loading modules\n");
 
 	// map usermode copies of ntoskrnl and fltmgr.sys
-	std::string ntosk = "ntoskrnl.exe";
-	auto		ntos_mod = Environment::GetSystemModuleInfo(ntosk);
-	bool		is_kernel = true;
-	bool		make_user_mode = false;
-	bool		mirror = true;
-	auto ntos = PEFile::Open((void*)ntos_mod->BaseInfo.ImageBase, ntosk,
-				 ntos_mod->BaseInfo.ImageSize,
-				 is_kernel,
-				 make_user_mode,
-				 mirror);
 
-	std::string fltr = "FLTMGR.SYS";
-	auto		fltr_mod = Environment::GetSystemModuleInfo(fltr);
-	auto		fltmgr = PEFile::Open((void*)fltr_mod->BaseInfo.ImageBase, fltr,
-								  fltr_mod->BaseInfo.ImageSize,
-								  is_kernel,
-								  make_user_mode,
-								  mirror);
+	PEFile::MirrorMemoryToUM("ntoskrnl.exe");
+	PEFile::MirrorMemoryToUM("FLTMGR.SYS");
 
-	make_user_mode = true;
-	mirror = false;
-
-	// set the UserSupervisor bit of the pages of the driver being emulated to usermode.
-	auto MainModule = PEFile::Open((void*)mod_info->BaseInfo.ImageBase,
-								   "BEDaisy",
-								   mod_info->BaseInfo.ImageSize,
-								   is_kernel,
-								   make_user_mode,
-								   mirror);
+	auto UserModeDriver = PEFile::ChangeEntriesToUM("BEDaisy.sys");
 	
 	// prove we can access originally allocated kernel memory in usermode!
+	std::string mod_name = "BEDaisy.sys";
+	PRTL_PROCESS_MODULE_INFORMATION_EX mod_info = Environment::GetSystemModuleInfo(mod_name);
 	char test = *(char*)mod_info->BaseInfo.ImageBase;
+	
+	// don't need to resolve imports anymore, they are resolved by the os
 	// MainModule->ResolveImport();
 
-	// If it's in kernel say it's executable
-	// also if it's the emulated module say it's executable
-	//ntos->SetExecutable(true);
-	//fltmgr->SetExecutable(true);
-	MainModule->SetExecutable(true);
+	UserModeDriver->SetExecutable(true);	// this causes the exception handler to be called
 
 	// this will create the shadow buffer's and mark the memory of all PEFile objects created as PAGE_NO_ACCESS or PAGE_READ_WRITE
-	// should we create a new class based off of PEFile called KernelRegion?
-	// it needs to create userland mirrors of things
 	// it needs to provide service for the exception handler and work with resolving symbols when available
 	// maybe we can also determine our own symbols for things when they aren't in a PDB (kernel objects)
 	
 	PEFile::SetPermission();
 	
-	FakeDrvEntry PatchedDrvEntry = (FakeDrvEntry)(MainModule->GetEP() + (UINT64)mod_info->BaseInfo.ImageBase);
+	FakeDrvEntry PatchedDrvEntry = (FakeDrvEntry)(UserModeDriver->GetEP() + (UINT64)mod_info->BaseInfo.ImageBase);
 
 	// works, but need to pass args.
 	// executes up to nt!__chkstk()
@@ -459,7 +428,7 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	DriverEntry = (proxyCall)(MainModule->GetMappedImageBase() + MainModule->GetEP());
+	DriverEntry = (proxyCall)(UserModeDriver->GetMappedImageBase() + UserModeDriver->GetEP());
 
 	Environment::kace_tid = GetCurrentThreadId();
 

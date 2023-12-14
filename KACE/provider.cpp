@@ -4,6 +4,7 @@
 #include <SymParser/symparser.hpp>
 
 #include "provider.h"
+#include "driver_buddy.h"
 
 namespace Provider
 {
@@ -15,7 +16,7 @@ namespace Provider
 
 static auto ntdll = LoadLibraryA("ntdll.dll");
 
-uintptr_t Provider::FindFuncImpl(uintptr_t ptr)
+uintptr_t Provider::FindFuncImpl(uintptr_t ptr, PCONTEXT ctx)
 {
 	uintptr_t implPtr = 0;
 
@@ -27,9 +28,11 @@ uintptr_t Provider::FindFuncImpl(uintptr_t ptr)
 	auto		rva = ptr - pe_file->GetMappedImageBase();	// the non-shadow base (aka the base that is known to emulated driver)
 	auto		exported_func = pe_file->GetExport(rva);
 
+	auto sym = symparser::find_symbol(pe_file->filename, rva);
+
 	if (!exported_func)
 	{
-		auto sym = symparser::find_symbol(pe_file->filename, rva);
+		sym = symparser::find_symbol(pe_file->filename, rva);
 		if (!sym || !sym->rva)
 		{
 			DebugBreak();
@@ -42,7 +45,7 @@ uintptr_t Provider::FindFuncImpl(uintptr_t ptr)
 	Logger::Log("Executing %s!%s\n", pe_file->name.c_str(), exported_func);
 	if (!strcmp(exported_func, "ZwCreateSection"))
 		DebugBreak();
-
+	// e.g. a function that is implemented in ntoskrnl_provider.cpp and registered
 	if (function_providers.contains(exported_func))
 		return (uintptr_t)function_providers[exported_func];
 
@@ -52,7 +55,13 @@ uintptr_t Provider::FindFuncImpl(uintptr_t ptr)
 	implPtr = (uintptr_t)GetProcAddress(ntdll, exported_func);
 
 	if (!implPtr)
-		implPtr = (uintptr_t)unimplemented_stub;
+	{
+		// PoC based on MmGetSystemRoutineAddress
+		auto result = DriverBuddy::Execute(ctx);
+		//if (result)
+		//	implPtr = (uintptr_t)unimplemented_stub;
+	}
+		
 
 	passthrough_provider_cache.insert(std::pair(exported_func, (PVOID)implPtr));
 
