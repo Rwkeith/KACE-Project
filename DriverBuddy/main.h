@@ -1,5 +1,5 @@
 #pragma once
-#include <ntddk.h>
+#include <ntifs.h>
 #include "buddy_common.h"
 
 #define EP_OFFSET 0xA8
@@ -12,5 +12,8 @@ NTSTATUS		  BuddyCreateClose(_In_ PDEVICE_OBJECT DeviceObject, _In_ PIRP Irp);
 NTSTATUS		  BuddyDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
 void LoadImageNotifyRoutine(PUNICODE_STRING, HANDLE, PIMAGE_INFO);
+
+void ExecAddressWithCtx(PCONTEXT ctx);
+
 EXTERN_C_END
 

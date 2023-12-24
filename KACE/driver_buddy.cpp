@@ -39,8 +39,9 @@ bool DriverBuddy::Init(std::string& driverPath)
 	handle_driverbuddy_svc = loader::create_service("DriverBuddy", "DriverBuddy", path);
 
 	// is it already running?
-	hDevice = CreateFile(L"\\\\.\\DriverBuddy", GENERIC_WRITE, FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+	hDevice = CreateFile(L"\\\\.\\DriverBuddy", GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
 
+	
 	if (hDevice != INVALID_HANDLE_VALUE)
 	{
 		StopService(false, handle_driverbuddy_svc);
@@ -50,6 +51,7 @@ bool DriverBuddy::Init(std::string& driverPath)
 	//
 	handle_driverbuddy_svc ? loader::start_service(handle_driverbuddy_svc) : false;
 
+	
 	if (!handle_driverbuddy_svc)
 	{
 		Logger::Log("Failed to load DriverBuddy, is DriverBuddy.sys in your ..\\KACE\\ folder?\n");
@@ -88,31 +90,33 @@ bool DriverBuddy::LoadEmulatedDrv(std::string& driverPath)
 {
 	// Find BEDaisy service (should always exist at this point)
 	//
-	auto handle_bedaisy_svc = loader::create_service("BEDaisy", "BEDaisy", driverPath);
+	// DEBUG COMMENTED OUT
+	// auto handle_bedaisy_svc = loader::create_service("BEDaisy", "BEDaisy", driverPath);
 
 	// If the emulated driver is still loaded, we should unload it.  It's in an unknown state from a previous run
-	StopService(false, handle_bedaisy_svc);
+	// DEBUG COMMENTED OUT
+	// StopService(false, handle_bedaisy_svc);
 
 
-	hDevice = CreateFile(L"\\\\.\\DriverBuddy", GENERIC_WRITE, FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+	hDevice = CreateFile(L"\\\\.\\DriverBuddy", GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
 	if (hDevice == INVALID_HANDLE_VALUE)
 	{
 		Error("[DriverBuddy] Failed to open device\n");
 		return false;
 	}
 
-	DriverInfo data = {};
-
-	std::wstring wDrivName = {};  // = UtilWidestringFromString(driverPath);
-	data.driverName = wDrivName.c_str();
+	std::wstring wDrivName = {};
+	size_t info[1];
+	info[0] = GetCurrentProcessId();
 
 	DWORD returned;
+	
 	BOOL  success = DeviceIoControl(hDevice,
 									IOCTL_DRIVER_BUDDY_WATCH_DRIVER,  // control code
-									&data,
-									sizeof(data),  // input buffer and length
+								   (LPVOID)info,
+								   sizeof(size_t),
 									nullptr,
-									0,	// output buffer and length
+									0,
 									&returned,
 									nullptr);
 	
@@ -207,9 +211,7 @@ bool DriverBuddy::Execute(PCONTEXT ctx)
 		if (hDevice)
 		{
 		auto success = DeviceIoControl(hDevice,
-											  IOCTL_DRIVER_BUDDY_EXECUTE,
-											  nullptr,
-											  0,
+											  IOCTL_DRIVER_BUDDY_EXECUTE, ctx, sizeof(CONTEXT),
 											  ret, sizeof(ret),
 											  &returned,
 											  nullptr);
