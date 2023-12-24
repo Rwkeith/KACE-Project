@@ -22,12 +22,14 @@ ExecAddressWithCtx PROC
     mov [origR9], R9
     mov [origRSP], RSP
     mov [origRBP], RBP
-    mov [origRet], [RSP]
 
     mov RDX, [RCX + 88h] ; RDX = context->RDX
     mov R8, [RCX + 0B8h] ; R8 = context->R8
     mov R9, [RCX + 0C0h] ; R9 = context->R9
     mov RSP, [RCX + 98h] ; RSP = context->RSP
+    mov R15, [RSP]
+    mov [origRet], R15
+
     mov RBP, [RCX + 0A0h] ; RBP = context->RBP
     mov R15, [RCX + 0F8h] ; R15 = context->RIP
     mov RCX, [RCX + 80h] ; RCX = context->RCX
