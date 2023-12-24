@@ -9,7 +9,7 @@ Continuation of the original KACE project from waryas and friends
 ## What has changed / been added from the original Kace project
 
 ## *Original Method*
-The original Kace project mapped kernel modules into usermode space such as ntos, fltrmgr, win32k, etc.  Then instrumented/emulated driver is then mapped in, where all these mappings are set with `NO_ACCESS` protection so the registered custom exception handler can take control and CPU emulate each instruction with Zydis.  The handler instrument's the Driver and the developer can add handler functions for ntos or other imports used by the instrumented driver.  This version of Kace fully emulated BEDaisy in usermode before moving towards the new approach (some core issues were fixed).
+The original Kace project mapped kernel modules into usermode space such as ntos, fltrmgr, win32k, and so on.  Then the instrumented driver is mapped into usermode and all kernel modules, excluding the instrumented driver, had their memory protection set to `NO_ACCESS` protection so the registered exception handler could handle R/W/X of data/code outside of its' address space. The developer added handler functions for code they'd reroute execution for (`ntos_provider.cpp`).  This version of Kace fully completed `DriverEntry()` of BEDaisy in usermode before moving towards the new approach (some core issues were fixed, some lessons learned).
 
 ## New Method
 
