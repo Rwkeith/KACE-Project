@@ -1,63 +1,35 @@
 #pragma once
 #include "main.h"
 #include "util.h"
-#include <intrin.h>
+#include "comm.h"
 
 #define SYMLINK_NAME L"\\DosDevices\\DriverBuddy"
 
-// CONTEXT			ctxBackup = 0;
-PUNICODE_STRING drvName;
-char			orig_bytes[3];
-char*			image_ep = 0; 
-int				smap_enabled = 0;
-PEPROCESS		Process = 0;
-
-void* GenerateAsmForMe(PCONTEXT ctx)
-{
-	ULONG64 reg1 = ctx->Rcx;
-	ULONG64 reg2 = ctx->Rdx;
-	ULONG64 reg3 = ctx->R8;
-	ULONG64 reg4 = ctx->R9;
-	ULONG64 reg5 = ctx->R10;
-	ULONG64 reg6 = ctx->R11;
-	ULONG64 reg7 = ctx->R12;
-	ULONG64 reg8 = ctx->R13;
-	ULONG64 reg9 = ctx->R14;
-	ULONG64 reg10 = ctx->R15;
-	ULONG64 reg11 = ctx->Rax;
-	ULONG64 reg12 = ctx->Rbx;
-	ULONG64 reg13 = ctx->Rsp;
-	ULONG64 reg14 = ctx->Rbp;
-	ULONG64 reg15 = ctx->Rsi;
-	ULONG64 reg16 = ctx->Rdi;
-
-	ULONG64 reg17 = ctx->Rip;
-
-	reg1 = reg1+reg2+reg3+reg4+reg5+reg6+reg7+reg8+reg9+reg10+reg11+reg12+reg13+reg14+reg15+reg16+reg17;
-}
+char		 g_origBytes[3];
+char*		 g_imageEP = 0;
+PEPROCESS	 g_kaceProc = 0;
+PBUDDY_SHMEM g_sharedBuff = 0;
 
 NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
 {
 	UNREFERENCED_PARAMETER(DriverObject);
 	UNREFERENCED_PARAMETER(RegistryPath);
-	
+
 	UNICODE_STRING devName = RTL_CONSTANT_STRING(L"\\Device\\DriverBuddy");
 
 	PDEVICE_OBJECT DeviceObject;
 	NTSTATUS	   status = IoCreateDevice(DriverObject, 0, &devName, FILE_DEVICE_UNKNOWN, 0, FALSE, &DeviceObject);
 	if (!NT_SUCCESS(status))
 	{
-		KdPrint(("Failed to create device object (0x%08X)\n", status));
+		KdPrint(("[DriverBuddy] Failed to create device object (0x%08X)\n", status));
 		return status;
 	}
-
-	// DeviceObject->Flags |= DO_BUFFERED_IO;	// DO_DIRECT_IO;
 
 	UNICODE_STRING symLink = RTL_CONSTANT_STRING(SYMLINK_NAME);
 	status = IoCreateSymbolicLink(&symLink, &devName);
 	if (!NT_SUCCESS(status))
 	{
-		KdPrint(("Failed to create symbolic link (0x%08X)\n", status));
+		KdPrint(("[DriverBuddy] Failed to create symbolic link (0x%08X)\n", status));
 		IoDeleteDevice(DeviceObject);
 		return status;
 	}
@@ -70,7 +42,30 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 	DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = BuddyDeviceControl;
 	DriverObject->DriverUnload = BuddyUnload;
 
-	DbgPrint("DriverBuddy Entry completed. (Latest)\n");
+	HANDLE threadHandle = NULL;
+
+	// Create the communication thread
+	status = PsCreateSystemThread(
+		&threadHandle,	 // Pointer to a HANDLE in which the thread's handle is returned
+		(ACCESS_MASK)0,	 // Desired access for the thread's handle (0 if you do not need to access the thread handle
+						 // from kernel mode)
+		NULL,			 // Pointer to an OBJECT_ATTRIBUTES structure (NULL if you do not need to specify attributes)
+		(HANDLE)0,		 // Handle for the process in which the thread is to run (0 for the current process)
+		NULL,  // Pointer to a CLIENT_ID structure that receives the thread and process IDs of the new thread (NULL if
+			   // not needed)
+		ListenerThread,	 // Start routine for the thread
+		NULL			 // Parameter to be passed to the start routine (NULL if not needed)
+	);
+
+	if (!NT_SUCCESS(status))
+	{
+		KdPrint(("[DriverBuddy] Failed to create system thread.\n"));
+		return status;
+	}
+
+	DbgPrint("[DriverBuddy] System Thread Started\n");
+
+	DbgPrint("[DriverBuddy] Entry completed...\n");
 	return STATUS_SUCCESS;
 }
 
@@ -78,10 +73,7 @@ NTSTATUS BuddyDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
 	UNREFERENCED_PARAMETER(DeviceObject);
 
-	// get our IO_STACK_LOCATION
 	IO_STACK_LOCATION* stack = IoGetCurrentIrpStackLocation(Irp);
-	// static PEPROCESS   Process = 0;
-	
 
 	auto status = STATUS_SUCCESS;
 	switch (stack->Parameters.DeviceIoControl.IoControlCode)
@@ -97,7 +89,7 @@ NTSTATUS BuddyDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 			}
 
 			SIZE_T proc_id = *((SIZE_T*)buffer);
-			if (PsLookupProcessByProcessId((HANDLE)proc_id, &Process) != STATUS_SUCCESS)
+			if (PsLookupProcessByProcessId((HANDLE)proc_id, &g_kaceProc) != STATUS_SUCCESS)
 			{
 				DbgPrint("[DriverBuddy] Failed to get process\n");
 				status = STATUS_INVALID_PARAMETER;
@@ -118,18 +110,17 @@ NTSTATUS BuddyDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 			break;
 		}
 		case IOCTL_DRIVER_BUDDY_UNWATCH_UNPATCH_DRIVER:
-			// Stop watching
-			
+			// stop watching
 			PsRemoveLoadImageNotifyRoutine(LoadImageNotifyRoutine);
-			// Unpatch
-			if (image_ep)
+			// unpatch
+			if (g_imageEP)
 			{
 				__try
 				{
 					ClearWP();
 					for (int i = 0; i < 3; i++)
 					{
-						*((char*)image_ep + i) = orig_bytes[i];
+						*((char*)g_imageEP + i) = g_origBytes[i];
 					}
 					SetWP();
 				}
@@ -146,13 +137,13 @@ NTSTATUS BuddyDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 				DbgPrint("[DriverBuddy] Nothing to unpatch...\n");
 				status = STATUS_INVALID_DEVICE_REQUEST;
 			}
-			
+
 			break;
 		// not actually needed
 		case IOCTL_DRIVER_BUDDY_DISABLE_SMAP:
 			__try
 			{
-				set_smap(0);
+				SetSMAP(0);
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
@@ -163,7 +154,7 @@ NTSTATUS BuddyDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		case IOCTL_DRIVER_BUDDY_ENABLE_SMAP:
 			__try
 			{
-				set_smap(1);
+				SetSMAP(1);
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
@@ -171,32 +162,46 @@ NTSTATUS BuddyDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 				DbgPrint("[DriverBuddy] Failed to enable SMAP, exception code: %ul\n", ex_code);
 			}
 			break;
+		case IOCTL_DRIVER_BUDDY_INIT_SHARED_MEM:
+		{
+			// this has to happen in an IOCTL because the security token of the system process doesn't allow user-mode
+			// handles to be opened to it....I think
+			g_sharedBuff = InitSharedMemory();
+			break;
+		}
 		case IOCTL_DRIVER_BUDDY_EXECUTE:
 		{
 			PVOID buffer = Irp->AssociatedIrp.SystemBuffer;
+			DbgPrint("[DriverBuddy] Trying to execute...\n");
 			__try
 			{
-				if (!Process)
+				/*
+				if (!g_kaceProc)
 				{
 					DbgPrint("[DriverBuddy] Process not set, did you call watch first?\n");
 					status = STATUS_INVALID_DEVICE_REQUEST;
 					break;
-				}
+				}*/
 
-				
+				/*
 				PCONTEXT ctx = (PCONTEXT)buffer;
 
 				DbgPrint("RIP = 0x%p\n", ctx->Rip);
 				DbgPrint("RSP = 0x%p\n", ctx->Rsp);
 				DbgPrint("RAX = 0x%p\n", ctx->Rax);
 
-				DbgPrint("[DriverBuddy] Executing 0x%p\n", ctx->Rip);
+				DbgPrint("[DriverBuddy] Executing 0x%p\n", ctx->Rip);*/
 				KAPC_STATE apcState;
-				KeStackAttachProcess(Process, &apcState);
-				ExecAddressWithCtx((PCONTEXT)buffer);
-				KeUnstackDetachProcess(&apcState);
+				// KeStackAttachProcess(g_kaceProc, &apcState);
+				g_sharedBuff = InitSharedMemory();
+				// ExecAddressWithCtx((PCONTEXT)buffer);
+				// KeUnstackDetachProcess(&apcState);
 				DbgPrint("[DriverBuddy] Done executing...\n");
-				
+
+				Irp->IoStatus.Status = status;
+				Irp->IoStatus.Information = 0;	// sizeof(CONTEXT);
+				IoCompleteRequest(Irp, IO_NO_INCREMENT);
+				return status;
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
@@ -229,7 +234,6 @@ void LoadImageNotifyRoutine(PUNICODE_STRING FullImageName, HANDLE ProcessId, PIM
 
 	wchar_t* last_backslash = wcsrchr(path, L'\\');
 
-
 	wchar_t* last_component = last_backslash + 1;
 	size_t	 len = wcslen(last_component);
 
@@ -238,30 +242,30 @@ void LoadImageNotifyRoutine(PUNICODE_STRING FullImageName, HANDLE ProcessId, PIM
 		DbgPrint("[DriverBuddy] IMAGE MATCH! %ws\n", last_component);
 		DbgPrint("[DriverBuddy] Base: 0x%p  Size: 0x%p %ws\n", ImageInfo->ImageBase, ImageInfo->ImageSize);
 		// Patch DriverEntry to return 0
-		int *image_ep_offset = (int*)((UINT64)ImageInfo->ImageBase + EP_OFFSET);
-		image_ep = (char*)((UINT64) ImageInfo->ImageBase + (UINT64)*image_ep_offset);
+		int* image_ep_offset = (int*)((UINT64)ImageInfo->ImageBase + EP_OFFSET);
+		g_imageEP = (char*)((UINT64)ImageInfo->ImageBase + (UINT64)*image_ep_offset);
 
-		if (*(char*)image_ep != '\xE9')
+		if (*(char*)g_imageEP != '\xE9')
 		{
 			DbgPrint("[DriverBuddy] Error, expected a jmp instruction.\n");
 			return;
 		}
 
-		char byte_patch[] = {'\x33', '\xc0', '\xc3'}; // xor EAX, EAX ; ret ;
-		
+		char byte_patch[] = {'\x33', '\xc0', '\xc3'};  // xor EAX, EAX ; ret ;
+
 		// backup original bytes to unpatch later
 		for (int i = 0; i < 3; i++)
 		{
-			orig_bytes[i] = *((char*)image_ep + i);
+			g_origBytes[i] = *((char*)g_imageEP + i);
 		}
 
 		__try
 		{
-			set_cet(0);
+			SetCET(0);
 			ClearWP();
 			for (int i = 0; i < 3; i++)
 			{
-				*((char*)image_ep + i) = byte_patch[i];
+				*((char*)g_imageEP + i) = byte_patch[i];
 			}
 			SetWP();
 		}
@@ -273,8 +277,6 @@ void LoadImageNotifyRoutine(PUNICODE_STRING FullImageName, HANDLE ProcessId, PIM
 		}
 	}
 }
-
-
 
 NTSTATUS BuddyCreateClose(_In_ PDEVICE_OBJECT DeviceObject, _In_ PIRP Irp)
 {
@@ -290,6 +292,12 @@ void BuddyUnload(_In_ PDRIVER_OBJECT DriverObject)
 	UNREFERENCED_PARAMETER(DriverObject);
 
 	PsRemoveLoadImageNotifyRoutine(LoadImageNotifyRoutine);
+
+	// Free the Fast I/O dispatch table
+	if (DriverObject->FastIoDispatch)
+	{
+		ExFreePool(DriverObject->FastIoDispatch);
+	}
 
 	UNICODE_STRING symLink = RTL_CONSTANT_STRING(SYMLINK_NAME);
 	// delete symbolic link

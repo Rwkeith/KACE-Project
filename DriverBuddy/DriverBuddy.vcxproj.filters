@@ -30,6 +30,9 @@
     <ClCompile Include="util.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="comm.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="main.h">
@@ -41,6 +44,9 @@
     <ClInclude Include="util.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="comm.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="readme.txt">
@@ -48,7 +54,7 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="CtxHandler.asm">
+    <MASM Include="execute.asm">
       <Filter>Source Files</Filter>
     </MASM>
   </ItemGroup>

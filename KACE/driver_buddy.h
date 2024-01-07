@@ -7,11 +7,15 @@ typedef void (*FakeDrvEntry)();
 
 namespace DriverBuddy
 {
-	inline HANDLE hDevice = 0; 
+	inline HANDLE hDevice = 0;
 	bool		  Init(std::string &driverPath);
 	bool		  LoadEmulatedDrv(std::string &driverPath);
 	bool		  ToggleSMAP(bool enable);
 	bool		  StopService(bool delete_flag, SC_HANDLE svc_handle);
-	int			  Error(const char* message);
+	int			  Error(const char *message);
 	bool		  Execute(PCONTEXT e);
+	void		  RingDoorBell();
+	bool		  InitCommunication();
+	void		  WriteSharedMemory(int cmd, PVOID data, size_t size);
+	void		  WaitForBuddy();
 }  // namespace DriverBuddy

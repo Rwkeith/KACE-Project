@@ -1,9 +1,16 @@
 #pragma once
-#include <ntddk.h>
+#include <intrin.h>
+#include <ntifs.h>
 
 EXTERN_C_START
-void set_smap(int enable);
-void set_cet(int enable);
-void SetWP();
-void ClearWP();
+NTSTATUS InitObjectWithUserModeAccess(OBJECT_ATTRIBUTES*	objectAttributes,
+									  WCHAR*				objectName,
+									  PSECURITY_DESCRIPTOR* pSecurityDescriptor,
+									  PACL*					pAcl,
+									  PUNICODE_STRING*		unicodeName);
+void	 SetSMAP(int enable);
+void	 SetCET(int enable);
+void	 SetWP();
+void	 ClearWP();
+void	 GenerateAsmForMe(PCONTEXT ctx);
 EXTERN_C_END

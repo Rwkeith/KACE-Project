@@ -58,7 +58,8 @@ uintptr_t Provider::FindFuncImpl(uintptr_t ptr, PCONTEXT ctx)
 	{
 		// PoC based on MmGetSystemRoutineAddress
 		auto result = DriverBuddy::Execute(ctx);
-		//if (result)
+		if (result)
+			return 0x1337;
 		//	implPtr = (uintptr_t)unimplemented_stub;
 	}
 		

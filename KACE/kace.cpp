@@ -123,6 +123,11 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 
 				auto rip = Provider::FindFuncImpl(addr_access, e->ContextRecord);
 
+				if (rip == 0x1337)
+				{
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
+
 				if (!rip)
 					DebugBreak();
 
