@@ -1,17 +1,8 @@
 ![alt text](https://drive.google.com/uc?export=view&id=1qgfpXdotNpEWSKo2I_O2puZFFBchPjrG)
 
-# Driver Buddy
+# <p align="center">Driver Buddy</p>
 
-## Foundational Credits
-
-Continuation of the original KACE project from waryas and friends
-
-## What has changed / been added from the original Kace project
-
-## *Original Method*
-The original Kace project mapped kernel modules into usermode space such as ntos, fltrmgr, win32k, and so on.  Then the instrumented driver is mapped into usermode and all kernel modules, excluding the instrumented driver, had their memory protection set to `NO_ACCESS` protection so the registered exception handler could handle R/W/X of data/code outside of its' address space. The developer added handler functions for code they'd reroute execution for (`ntos_provider.cpp`).  This version of Kace fully completed `DriverEntry()` of BEDaisy in usermode before moving towards the new approach (some core issues were fixed, some lessons learned).
-
-## New Method
+## Emulation Flow
 
 * A helper driver is loaded first *DriverBuddy(tm)*
   - Intercepts driver loading with a registered load handler and patches DriverEntry temporarily to skip kernel exeuction
@@ -29,13 +20,6 @@ The original Kace project mapped kernel modules into usermode space such as ntos
 
 * Bug fixes and improvements
   - Some improvements to reimplementations of Nt/ZwSystemQueryInfo which allows you to filter out/hide your other loaded driver's (implemented with old method, but filtering will be needed later on again for new method)
-
-## What needs to be done
-
-* Forward the emulated driver calls to exports from other kernel images and return/filter data accordingly.
-  - In the exception handler, when a kernel import is determined to being called, forward the args and address to DriverBuddy through an ioctl. *Could you do this dynamically? Describe call with struct telling # of args, data types for DriverBuddy*
-* Filter data you don't want the emulated driver to see (e.g. DriverBuddy when NtSysQueryInfo is called)
-* Handle side-channel attacks (timing, kernel vs. usermode thread struct differences)
 
 ## Functional Diagram
 ![alt text](https://drive.google.com/uc?export=view&id=1yxhjL3jBhpJIJbLO9AvpUxS4kEja9qJs)
@@ -87,11 +71,12 @@ When running in VS Debugger, in Exception Settings disable `0xc000005 Access Vio
 
 Use an up to date Windows 10 Build.  Tested on Build 19044.
 
-
 ## General Usage
 Specify a path for driver you want to emulate.  Optional flag `load_only_emu_mods` will only load modules in `C:\emu\` folder.
 ```shell
 .\KACE.exe <path_to_driver>  [load_only_emu_mods]
 ```
 
+## Credits
 
+Waryas for base concept and code.
