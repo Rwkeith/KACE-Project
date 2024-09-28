@@ -32,7 +32,7 @@ Note: May be preferred to run in VM during some kernel related debugging and dev
 
 - OS: Windows 10 22H2 Build 19045 (some builds may have issues finding symbols from msft servers, which Kace depends on for logging)
 - IDE: VS2022, Windows 10 SDK 10.0.22621.0
-- Dependecies:  [WDK 10.0.22621](https://learn.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk)
+- Dependecies:  [WDK 10.0.22621](https://learn.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk)  Ensure WDK is the same as SDK version!
 
 *Make sure Visual Studio is always ran as administrator when running Kace through VS's debugger!*
 
@@ -72,9 +72,12 @@ When running in VS Debugger, in Exception Settings disable `0xc000005 Access Vio
 Use an up to date Windows 10 Build.  Tested on Build 19044.
 
 ## General Usage
-Specify a path for driver you want to emulate.  Optional flag `load_only_emu_mods` will only load modules in `C:\emu\` folder.
+Specify a path for driver you want to emulate.  
+* `load_only_emu_mods` will only load modules in `C:\emu\` folder.
+* `use_buddy` will load a driver and proxy the emulated driver's kernel calls to it instead of using a usermode stub.
+
 ```shell
-.\KACE.exe <path_to_driver>  [load_only_emu_mods]
+.\KACE.exe <path_to_driver>  [load_only_emu_mods] [use_buddy]
 ```
 
 ## Credits
